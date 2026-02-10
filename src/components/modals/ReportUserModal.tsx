@@ -1,5 +1,8 @@
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
+import { useAuth } from '../../context/AuthContext'
+import { DataManager } from '../../services/DataManager'
+import type { Profile } from '../../types/profile'
 
 interface ReportUserModalProps {
     onClose: () => void
@@ -7,6 +10,7 @@ interface ReportUserModalProps {
 
 const ReportUserModal = ({ onClose }: ReportUserModalProps) => {
     const { t } = useTranslation()
+    const { token, owner, repo, user } = useAuth()
     const [telegramId, setTelegramId] = useState('')
     const [username, setUsername] = useState('')
     const [reason, setReason] = useState('')
@@ -21,11 +25,28 @@ const ReportUserModal = ({ onClose }: ReportUserModalProps) => {
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault()
+        if (!token) {
+            alert(t('auth.loginRequired'))
+            return
+        }
+
         setIsLoading(true)
 
         try {
-            // TODO: Реализовать создание PR через DataManager
-            console.log('Creating report:', { telegramId, username, reason, files })
+            const dataManager = new DataManager(token, owner, repo)
+
+            const profile: Profile = {
+                telegram_id: telegramId,
+                username: username.replace('@', ''), // Убираем @ если пользователь ввел
+                reason: reason,
+                date: new Date().toISOString(),
+                voting_count: 0,
+                status: 'pending',
+                added_by: user?.username || 'anonymous'
+            }
+
+            await dataManager.createProfile(profile, files)
+
             alert(t('reportForm.success'))
             onClose()
         } catch (error) {

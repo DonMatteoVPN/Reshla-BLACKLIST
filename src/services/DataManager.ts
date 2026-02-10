@@ -29,7 +29,9 @@ export class DataManager {
             })
 
             if ('content' in data) {
-                return Buffer.from(data.content, 'base64').toString('utf-8')
+                // В браузере используем atob для декодирования base64
+                // Для корректной поддержки UTF-8 используем decodeURIComponent + escape
+                return decodeURIComponent(escape(atob(data.content.replace(/\s/g, ''))))
             }
             throw new Error('File not found')
         } catch (error) {
@@ -73,7 +75,10 @@ export class DataManager {
     async updateRoles(roles: Roles): Promise<void> {
         const path = 'config/roles.json'
         const sha = await this.getFileSha(path)
-        const content = Buffer.from(JSON.stringify(roles, null, 2)).toString('base64')
+        const jsonContent = JSON.stringify(roles, null, 2)
+        // В браузере используем btoa для кодирования в base64
+        // Для корректной поддержки UTF-8 используем btoa + unescape + encodeURIComponent
+        const content = btoa(unescape(encodeURIComponent(jsonContent)))
 
         await this.octokit.rest.repos.createOrUpdateFileContents({
             owner: this.owner,
@@ -163,6 +168,22 @@ export class DataManager {
     }
 
     /**
+     * Преобразовать File в base64 строку
+     */
+    private async fileToBase64(file: File): Promise<string> {
+        return new Promise((resolve, reject) => {
+            const reader = new FileReader()
+            reader.readAsDataURL(file)
+            reader.onload = () => {
+                const base64String = reader.result?.toString().split(',')[1]
+                if (base64String) resolve(base64String)
+                else reject(new Error('Failed to convert file to base64'))
+            }
+            reader.onerror = (error) => reject(error)
+        })
+    }
+
+    /**
      * Создать Pull Request с новым профилем
      * (для репортов от обычных пользователей)
      */
@@ -170,10 +191,40 @@ export class DataManager {
         profile: Profile,
         proofFiles: File[]
     ): Promise<void> {
-        // TODO: Реализовать создание PR с загрузкой файлов
-        // Это сложная операция, требует создания ветки, коммитов и PR
-        console.log('Creating profile PR:', profile, proofFiles)
-        throw new Error('Not implemented yet')
+        try {
+            const telegramId = profile.telegram_id
+
+            // 1. Загружаем доказательства в основную ветку
+            for (const file of proofFiles) {
+                const content = await this.fileToBase64(file)
+                await this.octokit.rest.repos.createOrUpdateFileContents({
+                    owner: this.owner,
+                    repo: this.repo,
+                    path: `data/blacklist/${telegramId}/proofs/${file.name}`,
+                    message: `Upload proof: ${file.name}`,
+                    content
+                })
+            }
+
+            // 2. Загружаем profile.json в основную ветку
+            const jsonContent = JSON.stringify(profile, null, 2)
+            const profileContent = btoa(unescape(encodeURIComponent(jsonContent)))
+
+            // Проверяем, существует ли уже профиль (хотя для новых не должен)
+            const sha = await this.getFileSha(`data/blacklist/${telegramId}/profile.json`)
+
+            await this.octokit.rest.repos.createOrUpdateFileContents({
+                owner: this.owner,
+                repo: this.repo,
+                path: `data/blacklist/${telegramId}/profile.json`,
+                message: `Create report for ${telegramId}`,
+                content: profileContent,
+                sha: sha || undefined
+            })
+        } catch (error) {
+            console.error('Error creating profile:', error)
+            throw error
+        }
     }
 
     /**
@@ -186,10 +237,12 @@ export class DataManager {
         }
 
         profile.status = 'active'
+        profile.updated_at = new Date().toISOString()
 
         const path = `data/blacklist/${telegramId}/profile.json`
         const sha = await this.getFileSha(path)
-        const content = Buffer.from(JSON.stringify(profile, null, 2)).toString('base64')
+        const jsonContent = JSON.stringify(profile, null, 2)
+        const content = btoa(unescape(encodeURIComponent(jsonContent)))
 
         await this.octokit.rest.repos.createOrUpdateFileContents({
             owner: this.owner,
@@ -202,12 +255,56 @@ export class DataManager {
     }
 
     /**
-     * Отклонить профиль (удалить папку)
+     * Отклонить профиль (удалить папку пользователя)
      */
     async rejectProfile(telegramId: string): Promise<void> {
-        // TODO: Реализовать удаление папки
-        // Требует удаления всех файлов в папке
-        console.log('Rejecting profile:', telegramId)
-        throw new Error('Not implemented yet')
+        try {
+            const userPath = `data/blacklist/${telegramId}`
+
+            // Получаем список всех файлов в папке рекурсивно
+            const { data } = await this.octokit.rest.repos.getContent({
+                owner: this.owner,
+                repo: this.repo,
+                path: userPath,
+            })
+
+            if (!Array.isArray(data)) return
+
+            // Удаляем каждый файл
+            for (const item of data) {
+                if (item.type === 'file') {
+                    await this.octokit.rest.repos.deleteFile({
+                        owner: this.owner,
+                        repo: this.repo,
+                        path: item.path,
+                        message: `Remove file due to rejected report: ${item.name}`,
+                        sha: item.sha,
+                    })
+                } else if (item.type === 'dir') {
+                    // Рекурсивно для подпапок (например, proofs)
+                    const { data: subData } = await this.octokit.rest.repos.getContent({
+                        owner: this.owner,
+                        repo: this.repo,
+                        path: item.path,
+                    })
+                    if (Array.isArray(subData)) {
+                        for (const subItem of subData) {
+                            if (subItem.type === 'file') {
+                                await this.octokit.rest.repos.deleteFile({
+                                    owner: this.owner,
+                                    repo: this.repo,
+                                    path: subItem.path,
+                                    message: `Remove proof: ${subItem.name}`,
+                                    sha: subItem.sha,
+                                })
+                            }
+                        }
+                    }
+                }
+            }
+        } catch (error) {
+            console.error('Error rejecting profile:', error)
+            throw error
+        }
     }
 }

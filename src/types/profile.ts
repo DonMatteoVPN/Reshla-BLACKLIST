@@ -8,6 +8,7 @@ export interface Profile {
     status: 'active' | 'pending'
     added_by?: string
     proof_files?: string[]
+    updated_at?: string // ISO 8601 format
 }
 
 // Тип для отображения профиля с дополнительными данными
