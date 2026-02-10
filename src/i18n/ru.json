@@ -1,0 +1,75 @@
+{
+    "app": {
+        "title": "Reshla Blacklist",
+        "description": "Система управления чёрным списком"
+    },
+    "auth": {
+        "login": "Войти",
+        "logout": "Выйти",
+        "enterToken": "Введите Personal Access Token",
+        "tokenPlaceholder": "ghp_...",
+        "loginSuccess": "Вход выполнен успешно",
+        "loginError": "Ошибка входа. Проверьте токен"
+    },
+    "dashboard": {
+        "title": "Чёрный список",
+        "filterAll": "Все",
+        "filterActive": "Активные баны",
+        "filterPending": "На модерации",
+        "searchPlaceholder": "Поиск по Telegram ID...",
+        "noResults": "Ничего не найдено",
+        "reportUser": "Пожаловаться на пользователя"
+    },
+    "userCard": {
+        "telegramId": "Telegram ID",
+        "username": "Username",
+        "reason": "Причина",
+        "date": "Дата добавления",
+        "votes": "Голосов",
+        "status": "Статус",
+        "statusActive": "Активный бан",
+        "statusPending": "На модерации",
+        "viewDetails": "Подробнее",
+        "approve": "Одобрить",
+        "reject": "Отклонить"
+    },
+    "userDetails": {
+        "title": "Детали пользователя",
+        "proofs": "Доказательства",
+        "noProofs": "Доказательства отсутствуют",
+        "addedBy": "Добавил",
+        "close": "Закрыть"
+    },
+    "reportForm": {
+        "title": "Пожаловаться на пользователя",
+        "telegramId": "Telegram ID",
+        "username": "Username",
+        "reason": "Причина",
+        "reasonPlaceholder": "Опишите причину добавления в чёрный список (минимум 10 символов)",
+        "uploadProofs": "Загрузить доказательства",
+        "submit": "Отправить",
+        "cancel": "Отмена",
+        "success": "Жалоба отправлена на модерацию",
+        "error": "Ошибка отправки жалобы"
+    },
+    "admin": {
+        "title": "Панель администратора",
+        "manageRoles": "Управление ролями",
+        "admins": "Администраторы",
+        "moderators": "Модераторы",
+        "addUser": "Добавить пользователя",
+        "removeUser": "Удалить",
+        "usernamePlaceholder": "GitHub username",
+        "save": "Сохранить изменения",
+        "saveSuccess": "Изменения сохранены",
+        "saveError": "Ошибка сохранения",
+        "accessDenied": "Доступ запрещён. Только для администраторов."
+    },
+    "common": {
+        "loading": "Загрузка...",
+        "error": "Ошибка",
+        "success": "Успешно",
+        "confirm": "Подтвердить",
+        "cancel": "Отмена"
+    }
+}

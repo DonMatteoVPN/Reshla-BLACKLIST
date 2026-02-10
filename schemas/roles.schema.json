@@ -1,0 +1,28 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Roles Configuration",
+  "description": "Конфигурация ролей для системы управления чёрным списком",
+  "type": "object",
+  "properties": {
+    "admins": {
+      "type": "array",
+      "description": "Список GitHub username'ов с правами главного администратора",
+      "items": {
+        "type": "string",
+        "pattern": "^[a-zA-Z0-9-]+$"
+      },
+      "uniqueItems": true
+    },
+    "moderators": {
+      "type": "array",
+      "description": "Список GitHub username'ов с правами модератора",
+      "items": {
+        "type": "string",
+        "pattern": "^[a-zA-Z0-9-]+$"
+      },
+      "uniqueItems": true
+    }
+  },
+  "required": ["admins", "moderators"],
+  "additionalProperties": false
+}

@@ -1,0 +1,65 @@
+{
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "title": "Blacklist Profile",
+    "description": "Профиль пользователя в чёрном списке",
+    "type": "object",
+    "properties": {
+        "telegram_id": {
+            "type": "string",
+            "description": "Telegram ID пользователя",
+            "pattern": "^[0-9]+$"
+        },
+        "username": {
+            "type": "string",
+            "description": "Telegram username (без @)",
+            "minLength": 1,
+            "maxLength": 32
+        },
+        "reason": {
+            "type": "string",
+            "description": "Причина добавления в чёрный список",
+            "minLength": 10
+        },
+        "date": {
+            "type": "string",
+            "description": "Дата добавления в формате ISO 8601",
+            "format": "date-time"
+        },
+        "voting_count": {
+            "type": "integer",
+            "description": "Количество голосов за бан (для статуса pending)",
+            "minimum": 0,
+            "default": 0
+        },
+        "status": {
+            "type": "string",
+            "description": "Статус записи",
+            "enum": [
+                "active",
+                "pending"
+            ],
+            "default": "pending"
+        },
+        "added_by": {
+            "type": "string",
+            "description": "GitHub username того, кто добавил запись",
+            "pattern": "^[a-zA-Z0-9-]+$"
+        },
+        "proof_files": {
+            "type": "array",
+            "description": "Список файлов с доказательствами (относительные пути)",
+            "items": {
+                "type": "string"
+            },
+            "default": []
+        }
+    },
+    "required": [
+        "telegram_id",
+        "username",
+        "reason",
+        "date",
+        "status"
+    ],
+    "additionalProperties": false
+}

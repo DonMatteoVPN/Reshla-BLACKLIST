@@ -1,0 +1,75 @@
+{
+    "app": {
+        "title": "Reshla Blacklist",
+        "description": "Blacklist Management System"
+    },
+    "auth": {
+        "login": "Login",
+        "logout": "Logout",
+        "enterToken": "Enter Personal Access Token",
+        "tokenPlaceholder": "ghp_...",
+        "loginSuccess": "Login successful",
+        "loginError": "Login error. Check your token"
+    },
+    "dashboard": {
+        "title": "Blacklist",
+        "filterAll": "All",
+        "filterActive": "Active Bans",
+        "filterPending": "Pending Review",
+        "searchPlaceholder": "Search by Telegram ID...",
+        "noResults": "No results found",
+        "reportUser": "Report User"
+    },
+    "userCard": {
+        "telegramId": "Telegram ID",
+        "username": "Username",
+        "reason": "Reason",
+        "date": "Date Added",
+        "votes": "Votes",
+        "status": "Status",
+        "statusActive": "Active Ban",
+        "statusPending": "Pending Review",
+        "viewDetails": "View Details",
+        "approve": "Approve",
+        "reject": "Reject"
+    },
+    "userDetails": {
+        "title": "User Details",
+        "proofs": "Evidence",
+        "noProofs": "No evidence available",
+        "addedBy": "Added by",
+        "close": "Close"
+    },
+    "reportForm": {
+        "title": "Report User",
+        "telegramId": "Telegram ID",
+        "username": "Username",
+        "reason": "Reason",
+        "reasonPlaceholder": "Describe the reason for blacklisting (minimum 10 characters)",
+        "uploadProofs": "Upload Evidence",
+        "submit": "Submit",
+        "cancel": "Cancel",
+        "success": "Report submitted for review",
+        "error": "Error submitting report"
+    },
+    "admin": {
+        "title": "Admin Panel",
+        "manageRoles": "Manage Roles",
+        "admins": "Administrators",
+        "moderators": "Moderators",
+        "addUser": "Add User",
+        "removeUser": "Remove",
+        "usernamePlaceholder": "GitHub username",
+        "save": "Save Changes",
+        "saveSuccess": "Changes saved",
+        "saveError": "Error saving changes",
+        "accessDenied": "Access denied. Administrators only."
+    },
+    "common": {
+        "loading": "Loading...",
+        "error": "Error",
+        "success": "Success",
+        "confirm": "Confirm",
+        "cancel": "Cancel"
+    }
+}
