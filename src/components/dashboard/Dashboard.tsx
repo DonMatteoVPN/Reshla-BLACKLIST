@@ -1,9 +1,9 @@
 import { useState, useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useAuth } from '../../context/AuthContext'
-import type { Report, ReportStatus, ModeratorAction } from '../../types/report'
 import ReportCard from './ReportCard'
 import ReportUserModal from '../modals/ReportUserModal'
+import type { Report, ReportStatus } from '../../types/report'
 
 const Dashboard = () => {
     const { t } = useTranslation()
@@ -116,36 +116,31 @@ const Dashboard = () => {
                     </button>
                 </div>
 
-                <input
-                    type="text"
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    placeholder={t('dashboard.searchPlaceholder')}
-                    className="flex-1 px-4 py-2 rounded bg-dark-surface border border-dark-border focus:border-primary outline-none transition-colors"
-                />
+                <div className="flex-1">
+                    <input
+                        type="text"
+                        placeholder={t('dashboard.searchPlaceholder')}
+                        value={searchQuery}
+                        onChange={(e) => setSearchQuery(e.target.value)}
+                        className="w-full px-4 py-2 rounded bg-dark-surface border border-dark-border focus:border-primary outline-none transition-colors"
+                    />
+                </div>
             </div>
 
             {filteredReports.length === 0 ? (
-                <div className="text-center py-12 text-dark-muted">
+                <div className="text-center py-10 text-dark-muted">
                     {t('dashboard.noResults')}
                 </div>
             ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                     {filteredReports.map((report) => (
-                        <ReportCard
-                            key={report.id}
-                            report={report}
-                            onVoteSuccess={loadReports}
-                        />
+                        <ReportCard key={report.id} report={report} />
                     ))}
                 </div>
             )}
 
             {showReportModal && (
-                <ReportUserModal onClose={() => {
-                    setShowReportModal(false)
-                    loadReports()
-                }} />
+                <ReportUserModal onClose={() => setShowReportModal(false)} />
             )}
         </div>
     )

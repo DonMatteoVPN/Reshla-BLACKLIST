@@ -16,7 +16,6 @@ const VotingHub = () => {
 
     const loadVotingReports = async () => {
         if (!issuesService) return
-
         setIsLoading(true)
         try {
             const data = await issuesService.getReports('voting')
@@ -28,53 +27,44 @@ const VotingHub = () => {
         }
     }
 
-    if (isLoading) {
-        return (
-            <div className="flex items-center justify-center min-h-[400px]">
-                <p className="text-dark-muted">{t('common.loading')}</p>
-            </div>
-        )
-    }
-
     return (
         <div className="space-y-8">
-            <div className="text-center space-y-4 mb-12">
-                <h1 className="text-4xl md:text-6xl font-black gradient-text uppercase tracking-tighter">
+            <div className="text-center py-8">
+                <h1 className="text-4xl md:text-5xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-warning to-danger mb-4">
                     {t('votingHub.title')}
                 </h1>
                 <p className="text-xl text-dark-muted max-w-2xl mx-auto">
-                    {t('votingHub.description')}
+                    {t('votingHub.subtitle')}
                 </p>
-                <div className="flex justify-center gap-8 text-sm font-mono mt-4">
-                    <div className="text-center">
-                        <span className="block text-2xl font-bold text-success">{reports.length}</span>
-                        <span className="text-dark-muted">ACTIVE POLLS</span>
-                    </div>
-                    <div className="text-center">
-                        <span className="block text-2xl font-bold text-warning">24h</span>
-                        <span className="text-dark-muted">VOTING PERIOD</span>
-                    </div>
-                    <div className="text-center">
-                        <span className="block text-2xl font-bold text-primary">30</span>
-                        <span className="text-dark-muted">VOTES NEEDED</span>
-                    </div>
+            </div>
+
+            <div className="flex items-center justify-between">
+                <h2 className="text-2xl font-bold flex items-center">
+                    <span className="w-3 h-3 rounded-full bg-warning mr-2 animate-pulse"></span>
+                    {t('votingHub.activeVotes')}
+                </h2>
+                <div className="text-dark-muted text-sm">
+                    {reports.length} {t('reportCard.remaining')}
                 </div>
             </div>
 
-            {reports.length === 0 ? (
-                <div className="text-center py-20 glass-effect rounded-xl">
-                    <h3 className="text-2xl font-bold mb-2">All Quiet on the Western Front</h3>
-                    <p className="text-dark-muted">No active voting sessions at the moment.</p>
+            {isLoading ? (
+                <div className="flex justify-center py-20">
+                    <p className="text-dark-muted">{t('common.loading')}</p>
+                </div>
+            ) : reports.length === 0 ? (
+                <div className="text-center py-20 bg-dark-surface/50 rounded-lg border border-dark-border border-dashed">
+                    <h3 className="text-xl font-medium mb-2">{t('votingHub.noActiveVotes')}</h3>
+                    <p className="text-dark-muted">{t('votingHub.checkBackLater')}</p>
                 </div>
             ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                     {reports.map((report) => (
-                        <div key={report.id} className="transform hover:scale-[1.02] transition-transform duration-300">
-                            <ReportCard
-                                report={report}
-                                onVoteSuccess={loadVotingReports}
-                            />
-                        </div>
+                        <ReportCard 
+                            key={report.id} 
+                            report={report} 
+                            onUpdate={loadVotingReports}
+                        />
                     ))}
                 </div>
             )}

@@ -45,8 +45,22 @@ const ReportUserModal = ({ onClose }: ReportUserModalProps) => {
         setIsLoading(true)
 
         try {
+            // Upload proofs first
+            // We can use DataManager or direct Octokit. 
+            // If using issuesService, we might need a method to upload images or stick to DataManager for file ops.
+            // Let's use DataManager or Octokit from here as before but sending to a perm path?
+            // Actually, for Issues, we usually drag-drop images. Here we upload to repo?
+            // Sticking to "data/temp_proofs" for now seems okay, or just "images" folder.
+
+            // To keep it simple and clean, let's keep the upload logic here or move to service.
+            // I'll keep it here for now but use issuesService for createReport.
+
             const octokit = new Octokit({ auth: token })
             const uploadedUrls: string[] = []
+
+            // Create report placeholder ID? No, create report returns ID.
+            // But we need images FOR the report body.
+            // So upload images first with a timestamp ID or random ID?
             const tempId = Date.now().toString()
 
             for (const file of files) {
@@ -66,16 +80,22 @@ const ReportUserModal = ({ onClose }: ReportUserModalProps) => {
                 uploadedUrls.push(fileUrl)
             }
 
-            const report = await issuesService.createReport(
-                telegramId,
-                username.replace('@', ''),
-                reason,
-                uploadedUrls
-            )
-
-            if (!report) {
-                throw new Error('Failed to create report')
+            // Create Issue Body
+            let body = `### Suspect Info\n`
+            body += `**Telegram ID:** \`${telegramId}\`\n`
+            body += `**Username:** @${username}\n\n`
+            body += `### Reason\n${reason}\n\n`
+            
+            if (uploadedUrls.length > 0) {
+                body += `### Proofs\n`
+                uploadedUrls.forEach((url, i) => {
+                    body += `![Proof ${i+1}](${url})\n`
+                })
             }
+
+            const title = `Report: ${username || telegramId} - ${reason.substring(0, 30)}...`
+            
+            await issuesService.createReport(title, body)
 
             alert(t('reportForm.success'))
             onClose()
@@ -88,19 +108,13 @@ const ReportUserModal = ({ onClose }: ReportUserModalProps) => {
     }
 
     return (
-        <div
-            className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 animate-fade-in"
-            onClick={onClose}
-        >
-            <div
-                className="glass-effect rounded-lg p-6 max-w-md w-full mx-4"
-                onClick={(e) => e.stopPropagation()}
-            >
-                <h2 className="text-2xl font-bold mb-6">{t('reportForm.title')}</h2>
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 animate-fade-in">
+            <div className="glass-effect rounded-lg p-6 max-w-md w-full mx-4">
+                <h2 className="text-2xl font-bold mb-4">{t('reportForm.title')}</h2>
 
                 <form onSubmit={handleSubmit} className="space-y-4">
                     <div>
-                        <label className="block text-sm font-medium mb-2">
+                        <label className="block text-sm font-medium mb-1">
                             {t('reportForm.telegramId')}
                         </label>
                         <input
@@ -113,7 +127,7 @@ const ReportUserModal = ({ onClose }: ReportUserModalProps) => {
                     </div>
 
                     <div>
-                        <label className="block text-sm font-medium mb-2">
+                        <label className="block text-sm font-medium mb-1">
                             {t('reportForm.username')}
                         </label>
                         <input
@@ -121,27 +135,24 @@ const ReportUserModal = ({ onClose }: ReportUserModalProps) => {
                             value={username}
                             onChange={(e) => setUsername(e.target.value)}
                             className="w-full px-4 py-2 rounded bg-dark-surface border border-dark-border focus:border-primary outline-none transition-colors"
-                            required
                         />
                     </div>
 
                     <div>
-                        <label className="block text-sm font-medium mb-2">
+                        <label className="block text-sm font-medium mb-1">
                             {t('reportForm.reason')}
                         </label>
                         <textarea
                             value={reason}
                             onChange={(e) => setReason(e.target.value)}
                             placeholder={t('reportForm.reasonPlaceholder')}
-                            className="w-full px-4 py-2 rounded bg-dark-surface border border-dark-border focus:border-primary outline-none transition-colors resize-none"
-                            rows={4}
-                            minLength={10}
+                            className="w-full px-4 py-2 rounded bg-dark-surface border border-dark-border focus:border-primary outline-none transition-colors h-24 resize-none"
                             required
                         />
                     </div>
 
                     <div>
-                        <label className="block text-sm font-medium mb-2">
+                        <label className="block text-sm font-medium mb-1">
                             {t('reportForm.uploadProofs')}
                         </label>
                         <input

@@ -1,94 +1,124 @@
 import { useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useLocation } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { useAuth } from '../../context/AuthContext'
 import LoginForm from '../auth/LoginForm'
 
 const Header = () => {
     const { t, i18n } = useTranslation()
-    const { user, isAuthenticated, logout, isAdmin, isModerator } = useAuth()
-    const [showLoginForm, setShowLoginForm] = useState(false)
+    const { isAuthenticated, user, userRole, logout, isModerator, isAdmin } = useAuth()
+    const location = useLocation()
+    const [showLogin, setShowLogin] = useState(false)
 
     const toggleLanguage = () => {
-        const newLang = i18n.language === 'ru' ? 'en' : 'ru'
-        i18n.changeLanguage(newLang)
+        i18n.changeLanguage(i18n.language === 'ru' ? 'en' : 'ru')
     }
 
+    const isActive = (path: string) => location.pathname === path
+
     return (
-        <header className="glass-effect sticky top-0 z-50">
-            <div className="container mx-auto px-4 py-4">
-                <div className="flex items-center justify-between">
-                    {/* Лого */}
-                    <Link to="/" className="flex items-center space-x-2">
-                        <h1 className="text-2xl font-bold gradient-text">
-                            {t('app.title')}
-                        </h1>
+        <header className="border-b border-dark-border bg-dark-surface/50 backdrop-blur-md sticky top-0 z-40">
+            <div className="container mx-auto px-4 h-16 flex items-center justify-between">
+                {/* Logo */}
+                <Link to="/" className="flex items-center space-x-2 group">
+                    <div className="w-8 h-8 rounded bg-gradient-to-br from-primary to-accent flex items-center justify-center text-white font-bold text-xl group-hover:scale-105 transition-transform">
+                        R
+                    </div>
+                    <span className="font-bold text-xl tracking-tight hidden sm:block">
+                        Reshla <span className="text-primary">Blacklist</span>
+                    </span>
+                </Link>
+
+                {/* Navigation */}
+                <nav className="hidden md:flex items-center space-x-1">
+                    <Link
+                        to="/"
+                        className={`px-3 py-2 rounded-md text-sm font-medium transition-colors ${isActive('/')
+                            ? 'bg-dark-border text-white'
+                            : 'text-dark-muted hover:text-white hover:bg-dark-border/50'
+                            }`}
+                    >
+                        {t('dashboard.title')}
                     </Link>
-
-                    {/* Navigation Links */}
-                    <div className="hidden md:flex items-center space-x-6 ml-8 mr-auto">
-                        <Link to="/voting" className="text-dark-muted hover:text-accent transition-colors">
-                            {t('votingHub.title')}
-                        </Link>
-                        {isModerator && (
-                            <Link to="/moderation" className="text-dark-muted hover:text-primary transition-colors">
-                                {t('moderationDashboard.title')}
-                            </Link>
-                        )}
-                    </div>
-
-                    {/* Навигация и действия */}
-                    <div className="flex items-center space-x-4">
-                        {/* Переключатель языка */}
-                        <button
-                            onClick={toggleLanguage}
-                            className="px-3 py-1 rounded bg-dark-surface hover:bg-dark-border transition-colors"
+                    <Link
+                        to="/voting"
+                        className={`px-3 py-2 rounded-md text-sm font-medium transition-colors ${isActive('/voting')
+                            ? 'bg-dark-border text-warning'
+                            : 'text-dark-muted hover:text-warning hover:bg-dark-border/50'
+                            }`}
+                    >
+                        {t('votingHub.title')}
+                    </Link>
+                    {isModerator && (
+                        <Link
+                            to="/moderation"
+                            className={`px-3 py-2 rounded-md text-sm font-medium transition-colors ${isActive('/moderation')
+                                ? 'bg-dark-border text-danger'
+                                : 'text-dark-muted hover:text-danger hover:bg-dark-border/50'
+                                }`}
                         >
-                            {i18n.language.toUpperCase()}
-                        </button>
+                            {t('moderationDashboard.title')}
+                        </Link>
+                    )}
+                    {isAdmin && (
+                        <Link
+                            to="/admin"
+                            className={`px-3 py-2 rounded-md text-sm font-medium transition-colors ${isActive('/admin')
+                                ? 'bg-dark-border text-accent'
+                                : 'text-dark-muted hover:text-accent hover:bg-dark-border/50'
+                                }`}
+                        >
+                            {t('admin.title')}
+                        </Link>
+                    )}
+                </nav>
 
-                        {/* Админ панель (только для админов) */}
-                        {isAdmin && (
-                            <Link
-                                to="/admin"
-                                className="px-4 py-2 rounded bg-primary hover:bg-primary-dark transition-colors"
-                            >
-                                {t('admin.title')}
-                            </Link>
-                        )}
+                {/* Actions */}
+                <div className="flex items-center space-x-4">
+                    <button
+                        onClick={toggleLanguage}
+                        className="text-dark-muted hover:text-white transition-colors font-mono text-sm"
+                    >
+                        {i18n.language.toUpperCase()}
+                    </button>
 
-                        {/* Пользователь */}
-                        {isAuthenticated && user ? (
-                            <div className="flex items-center space-x-3">
-                                <img
-                                    src={user.avatar}
-                                    alt={user.username}
-                                    className="w-8 h-8 rounded-full"
-                                />
-                                <span className="text-dark-text">{user.username}</span>
-                                <button
-                                    onClick={logout}
-                                    className="px-4 py-2 rounded bg-danger hover:bg-danger-dark transition-colors"
-                                >
-                                    {t('auth.logout')}
-                                </button>
+                    {isAuthenticated ? (
+                        <div className="flex items-center space-x-3">
+                            <div className="text-right hidden sm:block">
+                                <div className="text-sm font-medium text-white">
+                                    {user?.name || user?.username}
+                                </div>
+                                <div className="text-xs text-dark-muted uppercase tracking-wider">
+                                    {userRole}
+                                </div>
                             </div>
-                        ) : (
+                            <img
+                                src={user?.avatar}
+                                alt="Avatar"
+                                className="w-8 h-8 rounded-full border border-dark-border"
+                            />
                             <button
-                                onClick={() => setShowLoginForm(true)}
-                                className="px-4 py-2 rounded bg-primary hover:bg-primary-dark transition-colors"
+                                onClick={logout}
+                                className="text-dark-muted hover:text-danger transition-colors"
                             >
-                                {t('auth.login')}
+                                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+                                </svg>
                             </button>
-                        )}
-                    </div>
+                        </div>
+                    ) : (
+                        <button
+                            onClick={() => setShowLogin(true)}
+                            className="bg-primary hover:bg-primary-dark text-white px-4 py-2 rounded-md text-sm font-medium transition-colors shadow-lg shadow-primary/20"
+                        >
+                            {t('auth.login')}
+                        </button>
+                    )}
                 </div>
             </div>
 
-            {/* Модалка входа */}
-            {showLoginForm && (
-                <LoginForm onClose={() => setShowLoginForm(false)} />
-            )}
+            {/* Login Modal */}
+            {showLogin && <LoginForm onClose={() => setShowLogin(false)} />}
         </header>
     )
 }

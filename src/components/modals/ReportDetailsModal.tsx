@@ -1,7 +1,7 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useAuth } from '../../context/AuthContext'
-import type { Report, ReportStatus, ModeratorAction } from '../../types/report'
+import type { ReportWithProofs } from '../../types/report'
 
 interface ReportDetailsModalProps {
     reportId: number
@@ -11,22 +11,41 @@ interface ReportDetailsModalProps {
 
 const ReportDetailsModal = ({ reportId, onClose, onUpdate }: ReportDetailsModalProps) => {
     const { t } = useTranslation()
-    const { issuesService, isModerator, user } = useAuth()
-    const [isLoading, setIsLoading] = useState(false)
-    const [report, setReport] = useState<Report | null>(null)
+    const { issuesService, user, isModerator } = useAuth()
+    const [report, setReport] = useState<ReportWithProofs | null>(null)
+    const [isLoading, setIsLoading] = useState(true)
     const [comment, setComment] = useState('')
     const [isProcessing, setIsProcessing] = useState(false)
 
-    useState(() => {
+    useEffect(() => {
         loadReport()
-    })
+    }, [reportId, issuesService])
 
-    async function loadReport() {
+    const loadReport = async () => {
         if (!issuesService) return
-        setIsLoading(true)
+
         try {
+            // Note: getReportById returns Report, we cast to ReportWithProofs or need to enhance service
+            // For now assuming Report contains enough info or we fetch proofs separately if needed
+            // The current GitHubIssuesService parsing includes proof_images, but maybe not full "ReportWithProofs" structure strictly
+            // We'll trust the type compatibility or adjust if needed.
+            // Actually ReportWithProofs extends Report.
             const data = await issuesService.getReportById(reportId)
-            setReport(data)
+            if (data) {
+                // Mocking proofs object structure if needed, or adjusting UI to use report.proof_images
+                const reportWithProofs: ReportWithProofs = {
+                    ...data,
+                    proofs: data.proof_images.map((url, index) => ({
+                        id: `proof-${index}`,
+                        report_id: data.id.toString(),
+                        file_name: `Proof ${index + 1}`,
+                        file_url: url,
+                        uploaded_at: data.created_at
+                    })),
+                    moderator_actions: [] // We might need to fetch comments separately to get actions
+                }
+                setReport(reportWithProofs)
+            }
         } catch (error) {
             console.error('Error loading report:', error)
         } finally {
@@ -34,40 +53,63 @@ const ReportDetailsModal = ({ reportId, onClose, onUpdate }: ReportDetailsModalP
         }
     }
 
-    const handleVote = async () => {
-        if (!issuesService) return
-        try {
-            await issuesService.vote(reportId)
-            await loadReport()
-            if (onUpdate) onUpdate()
-        } catch (error) {
-            console.error('Error voting:', error)
-        }
-    }
-
     const handleApprove = async () => {
-        if (!issuesService || !comment.trim()) {
+        if (!issuesService || !user || !report) return
+
+        if (!comment.trim()) {
             alert(t('reportDetails.commentRequired'))
             return
         }
+
         setIsProcessing(true)
         try {
             await issuesService.approveBan(reportId, comment)
-            await loadReport()
+
+            // No need for DataManager here, workflow handles it on issue close with 'status:approved'
+
+            alert(t('reportDetails.approveSuccess'))
             if (onUpdate) onUpdate()
+            onClose()
         } catch (error) {
-            console.error('Error voting:', error)
+            console.error('Error approving report:', error)
+            alert(t('reportDetails.approveError'))
+        } finally {
+            setIsProcessing(false)
         }
     }
 
     const handleReject = async () => {
-        if (!issuesService || !comment.trim()) {
+        if (!issuesService || !user || !report) return
+
+        if (!comment.trim()) {
             alert(t('reportDetails.commentRequired'))
             return
         }
+
+        if (!confirm(t('reportDetails.confirmReject'))) return
+
         setIsProcessing(true)
         try {
             await issuesService.rejectReport(reportId, comment)
+
+            alert(t('reportDetails.rejectSuccess'))
+            if (onUpdate) onUpdate()
+            onClose()
+        } catch (error) {
+            console.error('Error rejecting report:', error)
+            alert(t('reportDetails.rejectError'))
+        } finally {
+            setIsProcessing(false)
+        }
+    }
+
+    const handleVote = async () => {
+        if (!issuesService || !user || !report || report.user_voted) return
+
+        try {
+            await issuesService.vote(reportId)
+
+            // Optimistic update or reload
             await loadReport()
             if (onUpdate) onUpdate()
         } catch (error) {
