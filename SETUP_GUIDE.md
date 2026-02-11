@@ -174,8 +174,7 @@ git push origin main
 ## Триггеры и автоматика
 
 1. **Auto-update vote_count** - при добавлении голоса обновляется счетчик
-2. **Auto-promote to pending_review** - при 30+ голосах статус меняется автоматически
-3. **Auto-update updated_at** - timestamp обновляется при изменениях
+2. **Auto-promote to pending_review** - при 30+ голосах статус меняется автоматически\n3. **Auto-update updated_at** - timestamp обновляется при изменениях
 
 ## Troubleshooting
 

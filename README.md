@@ -1,212 +1,68 @@
-# Reshla Blacklist CMS
+# Reshla Blacklist: Decentralized Justice System
 
-**Community Blacklist CMS** — система управления чёрным списком пользователей Telegram с использованием GitHub в качестве базы данных.
+![Reshla Banner](https://img.shields.io/badge/Reshla-Blacklist-critical?style=for-the-badge&logo=shield&logoColor=white) 
+![React](https://img.shields.io/badge/React-20232A?style=for-the-badge&logo=react&logoColor=61DAFB)
+![TypeScript](https://img.shields.io/badge/TypeScript-007ACC?style=for-the-badge&logo=typescript&logoColor=white)
+![GitHub Actions](https://img.shields.io/badge/GitHub_Actions-2088FF?style=for-the-badge&logo=github-actions&logoColor=white)
 
-## 🎯 Особенности
+**Reshla Blacklist** is a fully decentralized, community-driven blacklist management system. It leverages **GitHub Issues** as a database and **GitHub Actions** for automated governance, eliminating the need for a traditional backend.
 
-- ✅ **Без бэкенда** — весь репозиторий GitHub используется как база данных
-- ✅ **Ролевая модель** — администраторы, модераторы и гости
-- ✅ **Аутентификация через GitHub** — Personal Access Token
-- ✅ **Локализация** — русский и английский языки
-- ✅ **Современный UI** — React + Vite + TypeScript + TailwindCSS
-- ✅ **Тёмная тема** — по умолчанию
+## 📚 Documentation
+- **[Full Walkthrough & Architecture](./walkthrough.md)** - Detailed guide on how the system works.
+- **[Task List](./task.md)** - Development progress.
 
-## 📦 Технологии
+## 🌟 Key Features
+- **Voting Hub**: Community votes on reports using GitHub Reactions.
+- **Moderation Dashboard**: Moderators review reports that pass the voting threshold.
+- **Automated Justice**: 
+  - `auto-judge`: Promotes reports with >30 votes to moderation.
+  - `enforce-ban`: Automatically commits ban data to the repo upon approval.
+- **Transparency**: Every action is a commit, issue, or comment.
 
-- **Frontend:** React 18 + TypeScript
-- **Сборка:** Vite
-- **Стили:** TailwindCSS
-- **API:** GitHub REST API (Octokit)
-- **Роутинг:** React Router
-- **Локализация:** i18next
+## 🚀 Quick Start
 
-## 🚀 Быстрый старт
-
-### 1. Установка зависимостей
-
+### 1. Setup
 ```bash
+# Clone the repo
+git clone https://github.com/DonMatteoVPN/Reshla-BLACKLIST.git
+cd Reshla-BLACKLIST
+
+# Install dependencies
 npm install
-```
 
-### 2. Настройка конфигурации
-
-Скопируйте `.env.example` в `.env` и укажите свои значения:
-
-```bash
+# Configure Environment (.env)
 cp .env.example .env
+# Edit .env with your VITE_GITHUB_OWNER, VITE_GITHUB_REPO, and GITHUB_TOKEN
 ```
 
-Отредактируйте `.env`:
-
-```env
-VITE_GITHUB_OWNER=ваш_github_username
-VITE_GITHUB_REPO=Reshla-BLACKLIST
-```
-
-Также обновите значения в `src/context/AuthContext.tsx`:
-
-```typescript
-const GITHUB_OWNER = 'ваш_github_username'
-const GITHUB_REPO = 'Reshla-BLACKLIST'
-```
-
-### 3. Структура репозитория
-
-Создайте в вашем GitHub репозитории следующую структуру:
-
-```
-/config/roles.json          # Конфигурация ролей
-/data/blacklist/{id}/       # Папки с профилями пользователей
-  ├── profile.json          # Данные профиля
-  └── proofs/               # Доказательства (изображения)
-```
-
-Пример `config/roles.json`:
-
-```json
-{
-  "admins": ["your_github_username"],
-  "moderators": []
-}
-```
-
-Пример `data/blacklist/123456789/profile.json`:
-
-```json
-{
-  "telegram_id": "123456789",
-  "username": "example_user",
-  "reason": "Причина добавления в чёрный список",
-  "date": "2026-02-10T13:00:00.000Z",
-  "voting_count": 0,
-  "status": "active",
-  "added_by": "admin_username",
-  "proof_files": []
-}
-```
-
-### 4. Получение GitHub Personal Access Token
-
-1. Перейдите в [GitHub Settings → Developer settings → Personal access tokens](https://github.com/settings/tokens)
-2. Создайте новый токен (Classic)
-3. Выберите права доступа:
-   - `repo` (полный доступ к репозиториям)
-4. Скопируйте токен
-
-### 5. Запуск приложения
-
+### 2. Run Locally
 ```bash
 npm run dev
 ```
+Visit `http://localhost:5173`.
 
-Приложение будет доступно по адресу: `http://localhost:5173`
-
-## 🔐 Аутентификация
-
-При первом запуске нажмите кнопку "Войти" и введите ваш GitHub Personal Access Token.
-
-## 👥 Роли
-
-- **Администратор** — полный доступ (управление ролями, одобрение/отклонение банов)
-- **Модератор** — одобрение/отклонение банов на модерации
-- **Гость** — просмотр активных банов
-
-## 📝 Основные функции
-
-### Для всех пользователей:
-- Просмотр чёрного списка
-- Фильтрация по статусу (активные / на модерации)
-- Поиск по Telegram ID
-- Отправка жалоб на пользователей
-
-### Для модераторов:
-- Одобрение жалоб (изменение статуса на "active")
-- Отклонение жалоб (удаление профиля)
-
-### Для администраторов:
-- Управление ролями (добавление/удаление модераторов)
-- Все права модератора
-
-## 🌐 Локализация
-
-Переключение языка доступно в шапке сайта (кнопка RU/EN).
-
-## 🚀 Деплой на GitHub Pages
-
-### 1. Настройка репозитория
-
-1. Создай репозиторий на GitHub: `Reshla-BLACKLIST`
-2. Загрузи код:
-
+### 3. Automation Scripts (Dry Run)
 ```bash
-git init
-git add .
-git commit -m "feat: initial commit"
-git branch -M main
-git remote add origin https://github.com/DonMatteoVPN/Reshla-BLACKLIST.git
-git push -u origin main
+# Check for reports that passed voting
+npm run check-votes
+
+# Generate blacklist entry (requires ISSUE_NUMBER env var)
+ISSUE_NUMBER=123 npm run generate-entry
 ```
 
-### 2. Включение GitHub Pages
+## 🛠 Deployment
+The project takes advantage of **GitHub Pages** for hosting.
+1. Push to `main`.
+2. The `.github/workflows/deploy.yml` workflow will automatically build and deploy to the `gh-pages` branch.
+3. Enable GitHub Pages in repo settings: **Source** -> **Deploy from a branch** -> **gh-pages**.
 
-1. Перейди в **Settings** → **Pages**
-2. В разделе **Source** выбери **GitHub Actions**
-3. Сохрани
+## 🏗 Architecture
+See [walkthrough.md](./walkthrough.md) for the full architectural diagram.
 
-### 3. Автоматический деплой
+## 🤝 Contributing
+1. Fork the repo.
+2. Create a feature branch.
+3. Submit a Pull Request.
 
-После пуша в `main` GitHub Actions автоматически:
-- Установит зависимости
-- Соберёт проект (`npm run build`)
-- Задеплоит на GitHub Pages
-
-Приложение будет доступно по адресу:
-**https://donmatteovpn.github.io/Reshla-BLACKLIST/**
-
-### 4. Обновление приложения
-
-Любые изменения в ветке `main` автоматически деплоятся на GitHub Pages.
-
-```bash
-git add .
-git commit -m "feat: update something"
-git push
-```
-
----
-
-## 🛠️ Разработка
-
-### Структура проекта
-
-```
-src/
-├── components/         # React-компоненты
-│   ├── admin/         # Админ-панель
-│   ├── auth/          # Аутентификация
-│   ├── common/        # Общие компоненты
-│   ├── dashboard/     # Дашборд
-│   └── modals/        # Модальные окна
-├── context/           # React Context
-├── hooks/             # Кастомные хуки
-├── i18n/              # Локализация
-├── services/          # Сервисы для работы с API
-└── types/             # TypeScript типы
-```
-
-### Доступные команды
-
-```bash
-npm run dev      # Запуск dev-сервера
-npm run build    # Сборка для production
-npm run preview  # Предпросмотр production-сборки
-npm run lint     # Проверка кода
-```
-
-## 📄 Лицензия
-
+## 📄 License
 MIT
-
-## 👨‍💻 Автор
-
-DonMatteo (Antigravity AI)
