@@ -8,40 +8,28 @@ const OWNER = process.env.VITE_GITHUB_OWNER || 'DonMatteoVPN'
 const REPO = process.env.VITE_GITHUB_REPO || 'Reshla-BLACKLIST'
 const IS_MOCK = process.env.MOCK_MODE === 'true'
 
-if (!GITHUB_TOKEN && !IS_MOCK) {
-    console.error('GITHUB_TOKEN is missing')
-    process.exit(1)
-}
-
-// Mock Data for Testing
-const MOCK_ISSUES = [
-    {
-        number: 1,
-        created_at: new Date(Date.now() - 30 * 60 * 1000).toISOString(), // 30 mins old
-        reactions: { '+1': 35 }, // Should PASS (>30 votes)
-        title: 'High Vote Report'
-    },
-    {
-        number: 2,
-        created_at: new Date(Date.now() - 25 * 60 * 60 * 1000).toISOString(), // 25 hours old
-        reactions: { '+1': 10 }, // Should EXPIRE (>24h)
-        title: 'Expired Report'
-    },
-    {
-        number: 3,
-        created_at: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(), // 2 hours old
-        reactions: { '+1': 5 }, // Should STAY (Pending)
-        title: 'Pending Report'
-    }
-]
-
+// Mock Octokit for testing
 class MockOctokit {
     rest = {
         issues: {
-            listForRepo: async () => ({ data: MOCK_ISSUES }),
-            addLabels: async (args: any) => console.log(`[MOCK] Added labels to #${args.issue_number}:`, args.labels),
-            removeLabel: async (args: any) => console.log(`[MOCK] Removed label from #${args.issue_number}:`, args.name),
-            createComment: async (args: any) => console.log(`[MOCK] Commented on #${args.issue_number}:`, args.body)
+            listForRepo: async () => ({
+                data: [
+                    {
+                        number: 1,
+                        title: 'Mock Report 1',
+                        created_at: new Date(Date.now() - 25 * 3600 * 1000).toISOString(), // 25 hours old
+                        reactions: { '+1': 5 }
+                    },
+                    {
+                        number: 2,
+                        title: 'Mock Report 2',
+                        created_at: new Date(Date.now() - 2 * 3600 * 1000).toISOString(), // 2 hours old
+                        reactions: { '+1': 35 } // High votes
+                    }
+                ]
+            }),
+            addLabels: async (params: any) => console.log(`[MOCK] Added labels to #${params.issue_number}: ${params.labels}`),
+            createComment: async (params: any) => console.log(`[MOCK] Commented on #${params.issue_number}: ${params.body}`)
         }
     }
 }
@@ -79,40 +67,25 @@ async function checkVotes() {
                     issue_number: issue.number,
                     labels: ['status:moderation']
                 })
-                await octokit.rest.issues.removeLabel({
-                    owner: OWNER,
-                    repo: REPO,
-                    issue_number: issue.number,
-                    name: 'status:voting'
-                })
                 await octokit.rest.issues.createComment({
                     owner: OWNER,
                     repo: REPO,
                     issue_number: issue.number,
-                    body: '✅ **Vote threshold reached.** This report has been moved to the moderation queue.'
+                    body: `🗳️ **Голосование завершено!**\n\nНабрано ${votes} голосов "За". Дело передано на рассмотрение модераторам.`
                 })
             } else if (diffHours >= 24) {
-                // Expired but minimal votes not reached. 
-                // Move to moderation queue as low priority for manual review.
                 console.log(`Issue #${issue.number} expired (${diffHours.toFixed(2)}h). Moving to moderation (low priority).`);
-
                 await octokit.rest.issues.addLabels({
                     owner: OWNER,
                     repo: REPO,
                     issue_number: issue.number,
                     labels: ['status:moderation', 'priority:low']
                 })
-                await octokit.rest.issues.removeLabel({
-                    owner: OWNER,
-                    repo: REPO,
-                    issue_number: issue.number,
-                    name: 'status:voting'
-                })
                 await octokit.rest.issues.createComment({
                     owner: OWNER,
                     repo: REPO,
                     issue_number: issue.number,
-                    body: '⚠️ **Voting period ended.** Report did not reach the automated threshold (30 votes). Moved to moderation queue for manual review.'
+                    body: `⏰ **Время голосования истекло.**\n\nНе набрано достаточно голосов для автоматического прохождения. Дело передано модераторам с низким приоритетом.`
                 })
             }
         }

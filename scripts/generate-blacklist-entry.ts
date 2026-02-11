@@ -10,13 +10,8 @@ const OWNER = process.env.VITE_GITHUB_OWNER || 'DonMatteoVPN'
 const REPO = process.env.VITE_GITHUB_REPO || 'Reshla-BLACKLIST'
 const ISSUE_NUMBER = process.env.ISSUE_NUMBER
 
-if (!GITHUB_TOKEN) {
-    console.error('GITHUB_TOKEN is missing')
-    process.exit(1)
-}
-
 if (!ISSUE_NUMBER) {
-    console.error('ISSUE_NUMBER is missing')
+    console.error('ISSUE_NUMBER is required')
     process.exit(1)
 }
 
@@ -32,56 +27,46 @@ async function generateEntry() {
             issue_number: parseInt(ISSUE_NUMBER!)
         })
 
-        const body = issue.body || ''
+        if (!issue.body) throw new Error('Issue body is empty')
 
         // Parse Body
-        const telegramIdMatch = body.match(/\*\*Telegram ID:\*\*\s*(.+)/)
-        const usernameMatch = body.match(/\*\*Username:\*\*\s*@?(.+)/)
-        const reasonMatch = body.match(/\*\*Reason:\*\*\s*(.+)/)
+        const telegramIdMatch = issue.body.match(/Telegram ID:\s*`?(\d+)`?/)
+        const usernameMatch = issue.body.match(/Username:\s*@?([a-zA-Z0-9_]+)/)
+        const reasonMatch = issue.body.match(/### Reason\s*\n\s*(.+)/)
 
-        if (!telegramIdMatch || !usernameMatch) {
-            console.error('Failed to parse issue body')
-            process.exit(1)
+        if (!telegramIdMatch) throw new Error('Could not parse Telegram ID')
+
+        const telegramId = telegramIdMatch[1]
+        const username = usernameMatch ? usernameMatch[1] : 'Unknown'
+        const reason = reasonMatch ? reasonMatch[1] : 'Violation'
+
+        console.log(`Parsed: ID=${telegramId}, User=${username}, Reason=${reason}`)
+
+        // Create Directory and Profile JSON
+        const dirPath = path.join('data', 'blacklist', telegramId)
+        if (!fs.existsSync(dirPath)) {
+            fs.mkdirSync(dirPath, { recursive: true })
         }
 
-        const telegramId = telegramIdMatch[1].trim()
-        const username = usernameMatch[1].trim()
-        const reason = reasonMatch ? reasonMatch[1].trim() : 'No reason provided'
-
-        // Create Directory
-        const dir = path.join('data', 'blacklist', telegramId)
-        if (!fs.existsSync(dir)) {
-            fs.mkdirSync(dir, { recursive: true })
-        }
-
-        // Create Profile JSON
         const profile = {
-            id: telegramId,
+            telegram_id: telegramId,
             username: username,
             reason: reason,
-            banned_at: new Date().toISOString(),
-            issue_url: issue.html_url,
-            proofs: [] as string[]
+            date: new Date().toISOString(),
+            voting_count: issue.reactions?.['+1'] || 0,
+            status: 'active',
+            issue_number: issue.number
         }
 
-        // Download Proofs (Mock for now, just storing URLs)
-        const proofMatches = body.matchAll(/\!\[\]\((.+?)\)/g)
-        for (const match of proofMatches) {
-            profile.proofs.push(match[1])
-        }
-
-        fs.writeFileSync(path.join(dir, 'profile.json'), JSON.stringify(profile, null, 2))
-        console.log(`Created profile for ${telegramId}`)
+        fs.writeFileSync(path.join(dirPath, 'profile.json'), JSON.stringify(profile, null, 2))
+        console.log(`Created profile.json for ${telegramId}`)
 
         // Update Blacklist TXT
         const txtPath = 'reshala-blacklist.txt'
-        const entry = `${telegramId} #${reason} (https://github.com/${OWNER}/${REPO}/tree/main/data/blacklist/${telegramId})`
+        const githubUrl = `https://github.com/${OWNER}/${REPO}/tree/main/data/blacklist/${telegramId}`
+        const txtEntry = `${telegramId} #${reason} (${githubUrl})\n`
 
-        if (fs.existsSync(txtPath)) {
-            fs.appendFileSync(txtPath, `\n${entry}`)
-        } else {
-            fs.writeFileSync(txtPath, entry)
-        }
+        fs.appendFileSync(txtPath, txtEntry)
         console.log(`Updated reshala-blacklist.txt`)
 
         // Git operations are handled by the workflow
@@ -94,8 +79,9 @@ async function generateEntry() {
                 repo: REPO,
                 issue_number: parseInt(ISSUE_NUMBER!),
                 state: 'closed',
-                labels: ['status:approved', 'banned']
+                state_reason: 'completed'
             })
+            console.log('Issue closed.')
         }
 
     } catch (error) {

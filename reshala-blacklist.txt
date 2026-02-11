@@ -1,2 +1,1 @@
-123456 #Scammer (https://github.com/DonMatteoVPN/Reshla-BLACKLIST/tree/main/data/blacklist/123456)
-789012 #Spammer (https://github.com/DonMatteoVPN/Reshla-BLACKLIST/tree/main/data/blacklist/789012)
+123456789 #Spam (https://github.com/DonMatteoVPN/Reshla-BLACKLIST/tree/main/data/blacklist/123456789)

@@ -16,20 +16,13 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-          cache: 'npm'
-
-      - name: Install Dependencies
-        run: npm install
-
-      - name: Build
-        run: npm run build
+      - name: Install and Build
+        run: |
+          npm install
+          npm run build
         env:
-          VITE_GITHUB_OWNER: ${{ vars.VITE_GITHUB_OWNER || github.repository_owner }}
-          VITE_GITHUB_REPO: ${{ vars.VITE_GITHUB_REPO || github.event.repository.name }}
+          VITE_GITHUB_OWNER: ${{ github.repository_owner }}
+          VITE_GITHUB_REPO: ${{ github.event.repository.name }}
 
       - name: Deploy
         uses: JamesIves/github-pages-deploy-action@v4
