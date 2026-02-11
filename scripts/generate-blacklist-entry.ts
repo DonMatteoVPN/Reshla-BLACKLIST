@@ -2,7 +2,6 @@ import { Octokit } from '@octokit/rest'
 import dotenv from 'dotenv'
 import fs from 'fs'
 import path from 'path'
-import { execSync } from 'child_process'
 
 dotenv.config()
 
@@ -30,7 +29,7 @@ async function generateEntry() {
         const { data: issue } = await octokit.rest.issues.get({
             owner: OWNER,
             repo: REPO,
-            issue_number: parseInt(ISSUE_NUMBER)
+            issue_number: parseInt(ISSUE_NUMBER!)
         })
 
         const body = issue.body || ''
@@ -85,40 +84,15 @@ async function generateEntry() {
         }
         console.log(`Updated reshala-blacklist.txt`)
 
-        // Commit Changes (if in CI)
-        try {
-            execSync(`git config --global user.name "Reshla Bot"`)
-            execSync(`git config --global user.email "bot@reshla.com"`)
-            execSync(`git add data/blacklist/${telegramId} reshala-blacklist.txt`)
-            execSync(`git commit -m "Ban hammer: Updated blacklist for Issue #${{ env.ISSUE_NUMBER }}"`) // Fixed potential variable usage inside execSync, though it was correct in file content
-            // Actually, wait, the file content string has interpolated variable.
-            // In the file content I read, it was: `git commit -m "Ban hammer: Updated blacklist for Issue #${{ env.ISSUE_NUMBER }}"`
-            // Wait, `${{ env.ISSUE_NUMBER }}` is GitHub Actions syntax, not TS.
-            // Ah, I see in the file content: `git commit -m "Ban hammer: Updated blacklist for Issue #${{ env.ISSUE_NUMBER }}"`
-            // This looks like it was intended for YAML but passed to TS?
-            // No, wait. The valid TS content was:
-            // execSync(`git commit -m "Ban hammer: ${telegramId}"`)
-            // I should double check what I'm pasting.
-            // Ah, I see `execSync(\`git commit -m "Ban hammer: ${telegramId}"\`)` in the TS file content I read earlier.
-            // Wait, looking at the viewed file content for `scripts/generate-blacklist-entry.ts`:
-            // `execSync(\`git commit -m "Ban hammer: ${telegramId}"\`)`
-            // But in `enforce-ban.yml` it was using `${{ env.ISSUE_NUMBER }}`.
-            // I am pushing the TS file. I must match the TS file content.
-            // The file content in `upload_batch_2.json` for `scripts/generate-blacklist-entry.ts` has:
-            // `execSync(\`git commit -m "Ban hammer: ${telegramId}"\`)`
-            // So I should use that.
-        } catch (e) {
-            console.warn('Git operations failed (might be local dev):', e)
-        }
-        
-        // ...
-        
+        // Git operations are handled by the workflow
+        console.log('Files generated. Workflow will handle commit and push.')
+
         // Close Issue if not closed
         if (issue.state === 'open') {
             await octokit.rest.issues.update({
                 owner: OWNER,
                 repo: REPO,
-                issue_number: parseInt(ISSUE_NUMBER),
+                issue_number: parseInt(ISSUE_NUMBER!),
                 state: 'closed',
                 labels: ['status:approved', 'banned']
             })

@@ -1,2 +1,2 @@
-666000000 #Being too awesome (https://t.me/reshala_example)
-123456789 #Scamming attempts (https://t.me/scammer_alert)
+123456 #Scammer (https://github.com/DonMatteoVPN/Reshla-BLACKLIST/tree/main/data/blacklist/123456)
+789012 #Spammer (https://github.com/DonMatteoVPN/Reshla-BLACKLIST/tree/main/data/blacklist/789012)
