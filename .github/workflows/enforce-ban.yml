@@ -1,38 +1,46 @@
 name: Enforce Ban
+
 on:
   issues:
     types: [closed]
   workflow_dispatch:
     inputs:
-      issue_number:
-        description: 'Issue Number to Enforce'
-        required: true
+        issue_number:
+            description: 'Issue Number to Ban'
+            required: true
+
+permissions:
+  contents: write
+  issues: write
 
 jobs:
   ban-user:
-    if: github.event.issue.state == 'closed' && contains(github.event.issue.labels.*.name, 'status:approved') || github.event_name == 'workflow_dispatch'
+    if: (github.event_name == 'issues' && contains(github.event.issue.labels.*.name, 'status:approved')) || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
-    permissions:
-      contents: write
-      issues: write
     steps:
       - uses: actions/checkout@v4
+      
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: '20'
           cache: 'npm'
+
       - name: Set Environment Variables
         run: |
           echo "ISSUE_NUMBER=${{ github.event.issue.number || inputs.issue_number }}" >> $GITHUB_ENV
+          
       - name: Install dependencies
         run: npm install
+        
       - name: Generate Blacklist Entry
         run: npm run generate-entry
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # ISSUE_NUMBER IS NOW IN GLOBAL ENV
           VITE_GITHUB_OWNER: ${{ github.repository_owner }}
           VITE_GITHUB_REPO: ${{ github.event.repository.name }}
+          
       - name: Commit and Push
         run: |
           git config --global user.name "Reshla Bot"
