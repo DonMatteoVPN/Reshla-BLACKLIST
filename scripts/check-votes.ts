@@ -58,12 +58,27 @@ async function checkVotes() {
                 })
             } else if (diffHours >= 24) {
                 // Expired but minimal votes not reached. 
-                // Creating a comment but NOT closing/rejecting.
-                // Just let it hang or move to moderation with a warning?
-                // User requirement: "simply hangs in queue... can only be approved/rejected by mod/admin"
-                console.log(`Issue #${issue.number} expired (${diffHours.toFixed(2)}h). Leaving for moderator review.`);
-                // Optional: Tag as 'stale' or leave as is?
-                // For now, do nothing.
+                // Move to moderation queue as low priority for manual review.
+                console.log(`Issue #${issue.number} expired (${diffHours.toFixed(2)}h). Moving to moderation (low priority).`);
+                
+                await octokit.rest.issues.addLabels({
+                    owner: OWNER,
+                    repo: REPO,
+                    issue_number: issue.number,
+                    labels: ['status:moderation', 'priority:low']
+                })
+                await octokit.rest.issues.removeLabel({
+                    owner: OWNER,
+                    repo: REPO,
+                    issue_number: issue.number,
+                    name: 'status:voting'
+                })
+                await octokit.rest.issues.createComment({
+                    owner: OWNER,
+                    repo: REPO,
+                    issue_number: issue.number,
+                    body: '⚠️ **Voting period ended.** Report did not reach the automated threshold (30 votes). Moved to moderation queue for manual review.'
+                })
             }
         }
     } catch (error) {
