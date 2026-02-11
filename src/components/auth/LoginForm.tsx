@@ -71,9 +71,9 @@ const LoginForm = ({ onClose }: LoginFormProps) => {
                 </form>
 
                 <p className="text-xs text-dark-muted mt-4">
-                    <strong>Почему нужен токен?</strong><br/>
-                    Reshla Blacklist — это децентрализованное приложение (Serverless). Мы не храним ваши данные. 
-                    Токен нужен для прямого общения вашего браузера с GitHub API (создание репортов, голосование). 
+                    <strong>Почему нужен токен?</strong><br />
+                    Reshla Blacklist — это децентрализованное приложение (Serverless). Мы не храним ваши данные.
+                    Токен нужен для прямого общения вашего браузера с GitHub API (создание репортов, голосование).
                     Права <code>public_repo</code> безопасны для публичных действий.
                 </p>
                 <p className="text-xs text-dark-muted mt-2">

@@ -1,8 +1,8 @@
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { useAuth } from '../../context/AuthContext'
 import type { Report } from '../../types/report'
 import ReportDetailsModal from '../modals/ReportDetailsModal'
+import { Clock, ThumbsUp } from 'lucide-react'
 
 interface ReportCardProps {
     report: Report
@@ -11,113 +11,64 @@ interface ReportCardProps {
 
 const ReportCard = ({ report, onVoteSuccess }: ReportCardProps) => {
     const { t } = useTranslation()
-    const { user, issuesService } = useAuth()
     const [showDetails, setShowDetails] = useState(false)
-    const [isVoting, setIsVoting] = useState(false)
-    const [hasVoted, setHasVoted] = useState(false)
 
-    const statusColor = {
-        voting: 'bg-warning',
-        moderation: 'bg-primary',
-        approved: 'bg-success',
-        rejected: 'bg-danger'
-    }[report.status]
+    const isVoting = report.status === 'voting'
+    const timeLeft = isVoting && report.voting_deadline ? new Date(report.voting_deadline).getTime() - Date.now() : 0
+    const hoursLeft = Math.max(0, Math.floor(timeLeft / (1000 * 60 * 60)))
 
-    const statusText = {
-        voting: t('reportCard.statusVoting'),
-        moderation: t('reportCard.statusModeration'),
-        approved: t('reportCard.statusApproved'),
-        rejected: t('reportCard.statusRejected')
-    }[report.status]
-
-    const handleVote = async (e: React.MouseEvent) => {
-        e.stopPropagation()
-
-        if (!user || isVoting || hasVoted || !issuesService) return
-
-        setIsVoting(true)
-        try {
-            await issuesService.vote(report.id)
-            setHasVoted(true)
-            if (onVoteSuccess) onVoteSuccess()
-        } catch (error) {
-            console.error('Error voting:', error)
-            alert(t('reportCard.voteError'))
-        } finally {
-            setIsVoting(false)
-        }
-    }
-
-    const getTimeRemaining = () => {
-        const deadline = new Date(report.voting_deadline)
-        const now = new Date()
-        const diff = deadline.getTime() - now.getTime()
-
-        if (diff <= 0) return t('reportCard.votingClosed')
-
-        const minutes = Math.floor(diff / 1000 / 60)
-        const hours = Math.floor(minutes / 60)
-        const mins = minutes % 60
-
-        if (hours > 0) {
-            return `${hours}h ${mins}m ${t('reportCard.remaining')}`
-        }
-        return `${mins}m ${t('reportCard.remaining')}`
+    const statusColors = {
+        voting: 'bg-warning text-black',
+        moderation: 'bg-info text-white',
+        approved: 'bg-danger text-white',
+        rejected: 'bg-dark-muted text-white'
     }
 
     return (
         <>
             <div
                 onClick={() => setShowDetails(true)}
-                className="glass-effect rounded-lg p-6 cursor-pointer hover:border-primary transition-all animate-fade-in"
+                className="glass-effect rounded-lg p-6 cursor-pointer hover:border-accent transition-all animate-fade-in relative overflow-hidden group"
             >
-                <div className="flex items-center justify-between mb-4">
-                    <span className={`px-3 py-1 rounded text-sm ${statusColor}`}>
-                        {statusText}
-                    </span>
-                    {report.status === 'voting' && (
-                        <span className="text-dark-muted text-sm">
-                            {getTimeRemaining()}
-                        </span>
-                    )}
+                {/* Status Badge */}
+                <div className={`absolute top-0 right-0 px-3 py-1 text-sm font-bold rounded-bl-lg ${statusColors[report.status]}`}>
+                    {report.status.toUpperCase()}
                 </div>
 
-                <div className="space-y-2">
-                    <div>
-                        <p className="text-dark-muted text-sm">{t('reportCard.telegramId')}</p>
-                        <p className="font-mono">{report.telegram_id}</p>
+                {/* Content */}
+                <div className="space-y-4">
+                    <div className="flex items-center space-x-2">
+                        <span className="text-2xl">⚠️</span>
+                        <h3 className="text-xl font-bold font-mono">{report.telegram_id}</h3>
                     </div>
-                    <div>
+
+                    <div className="space-y-1">
                         <p className="text-dark-muted text-sm">{t('reportCard.username')}</p>
-                        <p>@{report.username}</p>
+                        <p className="text-lg">@{report.username}</p>
                     </div>
-                    <div>
+
+                    <div className="space-y-1">
                         <p className="text-dark-muted text-sm">{t('reportCard.reason')}</p>
                         <p className="line-clamp-2">{report.reason}</p>
                     </div>
-                    <div className="flex items-center justify-between">
-                        <div>
-                            <p className="text-dark-muted text-sm">{t('reportCard.votes')}</p>
-                            <p className="font-bold text-lg">{report.vote_count}</p>
+
+                    {/* Stats */}
+                    <div className="flex items-center justify-between pt-4 border-t border-dark-border">
+                        <div className="flex items-center space-x-2 text-accent">
+                            <ThumbsUp size={18} />
+                            <span className="font-bold">{report.vote_count}</span>
                         </div>
-                        {report.status === 'voting' && user && (
-                            <button
-                                onClick={handleVote}
-                                disabled={isVoting || hasVoted}
-                                className={`px-4 py-2 rounded transition-colors ${hasVoted
-                                    ? 'bg-dark-surface text-dark-muted cursor-not-allowed'
-                                    : 'bg-warning hover:bg-warning-dark'
-                                    }`}
-                            >
-                                {hasVoted ? t('reportCard.voted') : t('reportCard.vote')}
-                            </button>
+                        {isVoting && (
+                            <div className="flex items-center space-x-2 text-warning">
+                                <Clock size={18} />
+                                <span>{hoursLeft}h left</span>
+                            </div>
                         )}
                     </div>
                 </div>
 
-                <button className="mt-4 w-full px-4 py-2 rounded bg-primary hover:bg-primary-dark transition-colors">
-                    {t('reportCard.viewDetails')}
-                </button>
+                {/* Hover Effect */}
+                <div className="absolute inset-0 bg-accent opacity-0 group-hover:opacity-5 transition-opacity" />
             </div>
 
             {showDetails && (

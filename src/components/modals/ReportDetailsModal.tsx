@@ -1,7 +1,7 @@
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useAuth } from '../../context/AuthContext'
-import type { ReportWithProofs } from '../../types/report'
+import type { Report, ReportStatus, ModeratorAction } from '../../types/report'
 
 interface ReportDetailsModalProps {
     reportId: number
@@ -11,45 +11,67 @@ interface ReportDetailsModalProps {
 
 const ReportDetailsModal = ({ reportId, onClose, onUpdate }: ReportDetailsModalProps) => {
     const { t } = useTranslation()
-    const { issuesService, user, isModerator } = useAuth()
-    const [report, setReport] = useState<ReportWithProofs | null>(null)
-    const [isLoading, setIsLoading] = useState(true)
+    const { issuesService, isModerator, user } = useAuth()
+    const [isLoading, setIsLoading] = useState(false)
+    const [report, setReport] = useState<Report | null>(null)
     const [comment, setComment] = useState('')
-    const [isSubmitting, setIsSubmitting] = useState(false)
+    const [isProcessing, setIsProcessing] = useState(false)
 
-    useEffect(() => {
-        loadReportDetails()
-    }, [reportId])
+    useState(() => {
+        loadReport()
+    })
 
-    const loadReportDetails = async () => {
+    async function loadReport() {
         if (!issuesService) return
-
         setIsLoading(true)
         try {
-            const data = await issuesService.getReportDetails(reportId)
+            const data = await issuesService.getReportById(reportId)
             setReport(data)
         } catch (error) {
-            console.error('Error loading report details:', error)
+            console.error('Error loading report:', error)
         } finally {
             setIsLoading(false)
         }
     }
 
-    const handleAddComment = async (e: React.FormEvent) => {
-        e.preventDefault()
-
-        if (!comment.trim() || !issuesService) return
-
-        setIsSubmitting(true)
+    const handleVote = async () => {
+        if (!issuesService) return
         try {
-            await issuesService.addComment(reportId, comment)
-            setComment('')
-            loadReportDetails() // Reload to show new comment
+            await issuesService.vote(reportId)
+            await loadReport()
+            if (onUpdate) onUpdate()
         } catch (error) {
-            console.error('Error adding comment:', error)
-            alert(t('reportDetails.commentError'))
-        } finally {
-            setIsSubmitting(false)
+            console.error('Error voting:', error)
+        }
+    }
+
+    const handleApprove = async () => {
+        if (!issuesService || !comment.trim()) {
+            alert(t('reportDetails.commentRequired'))
+            return
+        }
+        setIsProcessing(true)
+        try {
+            await issuesService.approveBan(reportId, comment)
+            await loadReport()
+            if (onUpdate) onUpdate()
+        } catch (error) {
+            console.error('Error voting:', error)
+        }
+    }
+
+    const handleReject = async () => {
+        if (!issuesService || !comment.trim()) {
+            alert(t('reportDetails.commentRequired'))
+            return
+        }
+        setIsProcessing(true)
+        try {
+            await issuesService.rejectReport(reportId, comment)
+            await loadReport()
+            if (onUpdate) onUpdate()
+        } catch (error) {
+            console.error('Error voting:', error)
         }
     }
 
@@ -63,54 +85,68 @@ const ReportDetailsModal = ({ reportId, onClose, onUpdate }: ReportDetailsModalP
         )
     }
 
-    if (!report) return null
+    if (!report) {
+        return null
+    }
 
     return (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 animate-fade-in overflow-y-auto py-10">
-            <div className="glass-effect rounded-lg p-6 max-w-2xl w-full mx-4 my-auto relative">
-                <button
-                    onClick={onClose}
-                    className="absolute top-4 right-4 text-dark-muted hover:text-white"
-                >
-                    ✕
-                </button>
+        <div
+            className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 animate-fade-in overflow-y-auto"
+            onClick={onClose}
+        >
+            <div
+                className="glass-effect rounded-lg p-6 max-w-4xl w-full mx-4 my-8 max-h-[90vh] overflow-y-auto"
+                onClick={(e) => e.stopPropagation()}
+            >
+                <h2 className="text-2xl font-bold mb-6">{t('reportDetails.title')}</h2>
 
-                <h2 className="text-2xl font-bold mb-6">{t('reportDetails.title')} #{report.id}</h2>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
                     <div>
-                        <h3 className="text-sm font-medium text-dark-muted mb-1">{t('reportCard.telegramId')}</h3>
-                        <p className="text-lg font-mono bg-dark-surface p-2 rounded">{report.telegram_id}</p>
+                        <p className="text-dark-muted text-sm">{t('reportCard.telegramId')}</p>
+                        <p className="font-mono text-lg">{report.telegram_id}</p>
                     </div>
                     <div>
-                        <h3 className="text-sm font-medium text-dark-muted mb-1">{t('reportCard.username')}</h3>
+                        <p className="text-dark-muted text-sm">{t('reportCard.username')}</p>
                         <p className="text-lg">@{report.username}</p>
                     </div>
-                </div>
-
-                <div className="mb-8">
-                    <h3 className="text-sm font-medium text-dark-muted mb-2">{t('reportCard.reason')}</h3>
-                    <div className="bg-dark-surface p-4 rounded text-dark-text whitespace-pre-wrap">
-                        {report.reason}
+                    <div>
+                        <p className="text-dark-muted text-sm">{t('reportCard.status')}</p>
+                        <p className="text-lg">{report.status}</p>
+                    </div>
+                    <div>
+                        <p className="text-dark-muted text-sm">{t('reportCard.votes')}</p>
+                        <p className="text-lg font-bold">{report.vote_count}</p>
+                    </div>
+                    <div className="col-span-full">
+                        <p className="text-dark-muted text-sm">{t('reportCard.reason')}</p>
+                        <p className="text-lg">{report.reason}</p>
+                    </div>
+                    <div>
+                        <p className="text-dark-muted text-sm">{t('reportDetails.submittedBy')}</p>
+                        <p className="text-lg">{report.submitted_by}</p>
+                    </div>
+                    <div>
+                        <p className="text-dark-muted text-sm">{t('reportDetails.createdAt')}</p>
+                        <p className="text-lg">{new Date(report.created_at).toLocaleString()}</p>
                     </div>
                 </div>
 
                 {report.proofs.length > 0 && (
-                    <div className="mb-8">
-                        <h3 className="text-sm font-medium text-dark-muted mb-3">{t('reportDetails.proofs')}</h3>
-                        <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                            {report.proofs.map((proof, index) => (
+                    <div className="mb-6">
+                        <h3 className="text-lg font-semibold mb-3">{t('reportDetails.proofs')}</h3>
+                        <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                            {report.proofs.map((proof) => (
                                 <a
-                                    key={index}
-                                    href={proof}
+                                    key={proof.id}
+                                    href={proof.file_url}
                                     target="_blank"
                                     rel="noopener noreferrer"
-                                    className="block aspect-square bg-dark-surface rounded overflow-hidden hover:opacity-80 transition-opacity"
+                                    className="block"
                                 >
                                     <img
-                                        src={proof}
-                                        alt={`Proof ${index + 1}`}
-                                        className="w-full h-full object-cover"
+                                        src={proof.file_url}
+                                        alt={proof.file_name}
+                                        className="rounded border border-dark-border w-full h-32 object-cover hover:opacity-75 transition-opacity"
                                     />
                                 </a>
                             ))}
@@ -118,44 +154,77 @@ const ReportDetailsModal = ({ reportId, onClose, onUpdate }: ReportDetailsModalP
                     </div>
                 )}
 
-                <div className="border-t border-dark-border pt-6">
-                    <h3 className="text-lg font-bold mb-4">{t('reportDetails.discussion')}</h3>
-                    
-                    <div className="space-y-4 mb-6 max-h-60 overflow-y-auto custom-scrollbar pr-2">
-                        {report.comments.map((comment) => (
-                            <div key={comment.id} className="bg-dark-surface p-3 rounded">
-                                <div className="flex items-center justify-between mb-2">
-                                    <span className="font-bold text-sm text-primary">{comment.user.login}</span>
-                                    <span className="text-xs text-dark-muted">
-                                        {new Date(comment.created_at).toLocaleDateString()}
-                                    </span>
+                {report.moderator_actions.length > 0 && (
+                    <div className="mb-6">
+                        <h3 className="text-lg font-semibold mb-3">{t('reportDetails.moderatorActions')}</h3>
+                        <div className="space-y-3">
+                            {report.moderator_actions.map((action) => (
+                                <div key={action.id} className="bg-dark-surface rounded p-4">
+                                    <div className="flex items-center justify-between mb-2">
+                                        <span className={`px-2 py-1 rounded text-sm ${action.action === 'approve' ? 'bg-success' : 'bg-danger'
+                                            }`}>
+                                            {action.action === 'approve' ? t('reportDetails.approved') : t('reportDetails.rejected')}
+                                        </span>
+                                        <span className="text-dark-muted text-sm">
+                                            {new Date(action.created_at).toLocaleString()}
+                                        </span>
+                                    </div>
+                                    <p className="text-sm text-dark-muted mb-1">
+                                        {t('reportDetails.moderator')}: {action.moderator_id}
+                                    </p>
+                                    {action.comment && (
+                                        <p className="text-sm">{action.comment}</p>
+                                    )}
                                 </div>
-                                <p className="text-sm whitespace-pre-wrap">{comment.body}</p>
-                            </div>
-                        ))}
-                        {report.comments.length === 0 && (
-                            <p className="text-dark-muted text-center py-4">{t('reportDetails.noComments')}</p>
-                        )}
+                            ))}
+                        </div>
                     </div>
+                )}
 
-                    {user && (
-                        <form onSubmit={handleAddComment} className="flex gap-2">
-                            <input
-                                type="text"
+                <div className="flex flex-col gap-3">
+                    {report.status === 'voting' && user && !report.user_voted && (
+                        <button
+                            onClick={handleVote}
+                            className="w-full px-4 py-2 rounded bg-warning hover:bg-warning-dark transition-colors"
+                        >
+                            {t('reportCard.vote')}
+                        </button>
+                    )}
+
+                    {report.status === 'moderation' && isModerator && (
+                        <>
+                            <textarea
                                 value={comment}
                                 onChange={(e) => setComment(e.target.value)}
                                 placeholder={t('reportDetails.commentPlaceholder')}
-                                className="flex-1 px-4 py-2 rounded bg-dark-surface border border-dark-border focus:border-primary outline-none transition-colors"
+                                className="w-full px-4 py-2 rounded bg-dark-surface border border-dark-border focus:border-primary outline-none transition-colors resize-none"
+                                rows={3}
                             />
-                            <button
-                                type="submit"
-                                disabled={!comment.trim() || isSubmitting}
-                                className="px-4 py-2 rounded bg-primary hover:bg-primary-dark disabled:opacity-50 transition-colors"
-                            >
-                                {isSubmitting ? '...' : '➤'}
-                            </button>
-                        </form>
+                            <div className="flex gap-3">
+                                <button
+                                    onClick={handleApprove}
+                                    disabled={isProcessing}
+                                    className="flex-1 px-4 py-2 rounded bg-success hover:bg-success-dark disabled:opacity-50 transition-colors"
+                                >
+                                    {t('reportDetails.approve')}
+                                </button>
+                                <button
+                                    onClick={handleReject}
+                                    disabled={isProcessing}
+                                    className="flex-1 px-4 py-2 rounded bg-danger hover:bg-danger-dark disabled:opacity-50 transition-colors"
+                                >
+                                    {t('reportDetails.reject')}
+                                </button>
+                            </div>
+                        </>
                     )}
+
+                    <button
+                        onClick={onClose}
+                        className="w-full px-4 py-2 rounded bg-dark-surface hover:bg-dark-border transition-colors"
+                    >
+                        {t('reportDetails.close')}
+                    </button>
                 </div>
             </div>
         </div>

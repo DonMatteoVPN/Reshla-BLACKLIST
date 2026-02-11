@@ -1,9 +1,9 @@
 import { useState, useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useAuth } from '../../context/AuthContext'
+import type { Report, ReportStatus, ModeratorAction } from '../../types/report'
 import ReportCard from './ReportCard'
 import ReportUserModal from '../modals/ReportUserModal'
-import type { Report, ReportStatus } from '../../types/report'
 
 const Dashboard = () => {
     const { t } = useTranslation()
