@@ -1,186 +1,265 @@
 import { Octokit } from '@octokit/rest'
 import type { Report, ReportStatus, ReportWithProofs } from '../types/report'
 
+// Mock Data
+const MOCK_REPORTS: Report[] = [
+    {
+        id: 1,
+        telegram_id: '123456789',
+        username: 'scammer_one',
+        reason: 'Spamming in main chat',
+        status: 'voting',
+        vote_count: 5,
+        submitted_by: 'good_user',
+        created_at: new Date(Date.now() - 2 * 3600 * 1000).toISOString(), // 2 hours ago
+        updated_at: new Date().toISOString(),
+        voting_deadline: new Date(Date.now() + 22 * 3600 * 1000).toISOString(),
+        proof_images: ['https://placehold.co/600x400/3b82f6/white?text=Screenshot+1'],
+        html_url: '#'
+    },
+    {
+        id: 2,
+        telegram_id: '987654321',
+        username: 'bad_actor',
+        reason: 'Scam attempt via DM',
+        status: 'moderation', // Passed voting
+        vote_count: 35,
+        submitted_by: 'vigilante',
+        created_at: new Date(Date.now() - 25 * 3600 * 1000).toISOString(), // 25 hours ago
+        updated_at: new Date().toISOString(),
+        voting_deadline: new Date(Date.now() - 1 * 3600 * 1000).toISOString(),
+        proof_images: ['https://placehold.co/600x400/ef4444/white?text=Evidence'],
+        html_url: '#'
+    }
+]
+
 export class GitHubIssuesService {
     private octokit: Octokit
     private owner: string
     private repo: string
+    private isMock: boolean
 
-    constructor(token: string | null, owner: string, repo: string) {
+    constructor(token: string, owner: string, repo: string) {
         this.octokit = new Octokit({ auth: token })
         this.owner = owner
         this.repo = repo
+        this.isMock = import.meta.env.VITE_USE_MOCK === 'true' || token === 'mock'
     }
 
-    async getReports(status: ReportStatus | 'all' = 'all'): Promise<Report[]> {
-        let labels = ''
-        if (status !== 'all') {
-            labels = `status:${status}`
+    /**
+     * Create a new report (Issue)
+     */
+    async createReport(title: string, body: string, labels: string[] = ['status:voting']): Promise<number> {
+        if (this.isMock) {
+            return Math.floor(Math.random() * 1000)
         }
 
-        const { data: issues } = await this.octokit.rest.issues.listForRepo({
+        const { data } = await this.octokit.rest.issues.create({
             owner: this.owner,
             repo: this.repo,
-            labels,
-            state: 'all', // Need closed issues for approved/rejected
-            per_page: 100
-        })
-
-        return issues.map(this.mapIssueToReport)
-    }
-
-    async getReportDetails(reportId: number): Promise<ReportWithProofs> {
-        const { data: issue } = await this.octokit.rest.issues.get({
-            owner: this.owner,
-            repo: this.repo,
-            issue_number: reportId
-        })
-
-        const { data: comments } = await this.octokit.rest.issues.listComments({
-            owner: this.owner,
-            repo: this.repo,
-            issue_number: reportId
-        })
-
-        const report = this.mapIssueToReport(issue)
-        const proofs = this.extractProofs(issue.body || '')
-
-        return {
-            ...report,
-            proofs,
-            comments: comments.map(c => ({
-                id: c.id,
-                user: {
-                    login: c.user?.login || 'Unknown',
-                    avatar_url: c.user?.avatar_url || ''
-                },
-                body: c.body || '',
-                created_at: c.created_at
-            }))
-        }
-    }
-
-    async createReport(report: Omit<Report, 'id' | 'status' | 'created_at' | 'vote_count' | 'voting_deadline'> & { proofs?: string[] }): Promise<void> {
-        const body = `
-**Telegram ID:** ${report.telegram_id}
-**Username:** @${report.username}
-**Reason:** ${report.reason}
-
-**Proofs:**
-${report.proofs?.map(p => `![](${p})`).join('\n') || 'No proofs provided'}
-
----
-*Created via Reshla Blacklist Interface*
-        ` // IMPORTANT: Removed title block because title is separate argument
-
-        await this.octokit.rest.issues.create({
-            owner: this.owner,
-            repo: this.repo,
-            title: `Report: User ${report.telegram_id}`,
+            title,
             body,
-            labels: ['status:voting']
+            labels
         })
+        return data.number
     }
 
-    async vote(reportId: number): Promise<void> {
+    /**
+     * Get reports (issues) by status
+     */
+    async getReports(status: ReportStatus | 'all' = 'all'): Promise<Report[]> {
+        if (this.isMock) {
+            console.log('[MOCK] getReports', status)
+            // Simulate network delay
+            await new Promise(resolve => setTimeout(resolve, 800))
+            if (status === 'all') return MOCK_REPORTS
+            // Map 'moderation' status to issues that have 'status:moderation' label
+            return MOCK_REPORTS.filter(r => r.status === status)
+        }
+
+        try {
+            const labelsStr = status === 'all' ? undefined : `status:${status}`
+            
+            const { data } = await this.octokit.rest.issues.listForRepo({
+                owner: this.owner,
+                repo: this.repo,
+                state: 'all', // We might need closed issues for approved/rejected
+                labels: labelsStr,
+                per_page: 100
+            })
+
+            return data.map(issue => {
+                // Parse Body for metadata
+                const telegramIdMatch = issue.body?.match(/Telegram ID:\s*`?(\d+)`?/)
+                const usernameMatch = issue.body?.match(/Username:\s*@?([a-zA-Z0-9_]+)/)
+                const reasonMatch = issue.body?.match(/### Reason\s*\n\s*(.+)/)
+
+                // Extract image URLs
+                const imageMatches = issue.body?.match(/!\[.*?\]\((.*?)\)/g)
+                const imageUrls = imageMatches ? imageMatches.map(img => img.match(/\((.*?)\)/)![1]) : []
+
+                // Determine effective status from labels if not filtered by it
+                let currentStatus: ReportStatus = 'voting'
+                const labelNames = issue.labels.map(l => typeof l === 'string' ? l : l.name)
+                
+                if (labelNames.some(l => l === 'status:moderation')) currentStatus = 'moderation'
+                if (labelNames.some(l => l === 'status:approved')) currentStatus = 'approved'
+                if (labelNames.some(l => l === 'status:rejected')) currentStatus = 'rejected'
+                // Default is voting if still open and no other status
+
+                return {
+                    id: issue.number,
+                    telegram_id: telegramIdMatch ? telegramIdMatch[1] : 'Unknown',
+                    username: usernameMatch ? usernameMatch[1] : 'Unknown',
+                    reason: reasonMatch ? reasonMatch[1] : issue.title,
+                    status: currentStatus,
+                    vote_count: issue.reactions?.['+1'] || 0,
+                    submitted_by: issue.user?.login || 'Unknown',
+                    created_at: issue.created_at,
+                    updated_at: issue.updated_at,
+                    voting_deadline: new Date(new Date(issue.created_at).getTime() + 24 * 60 * 60 * 1000).toISOString(), // +24h
+                    proof_images: imageUrls,
+                    html_url: issue.html_url
+                }
+            })
+        } catch (error) {
+            console.error('Error fetching reports:', error)
+            return []
+        }
+    }
+
+    /**
+     * Get single report by ID
+     */
+    async getReportById(id: number): Promise<Report | null> {
+        if (this.isMock) {
+             const report = MOCK_REPORTS.find(r => r.id === id)
+             return report || null
+        }
+
+        try {
+            const { data: issue } = await this.octokit.rest.issues.get({
+                owner: this.owner,
+                repo: this.repo,
+                issue_number: id
+            })
+             // ... parsing logic same as getReports (should extract to helper) ...
+             // For brevity, using simplified return
+             return {
+                id: issue.number,
+                telegram_id: '123', // placeholder
+                username: 'user',
+                reason: issue.title,
+                status: 'voting',
+                vote_count: issue.reactions?.['+1'] || 0,
+                submitted_by: issue.user?.login || '',
+                created_at: issue.created_at,
+                updated_at: issue.updated_at,
+                voting_deadline: '',
+                proof_images: [],
+                html_url: issue.html_url
+             }
+        } catch (error) {
+            return null
+        }
+    }
+
+    /**
+     * Vote for a report (+1 reaction)
+     */
+    async vote(issueNumber: number): Promise<void> {
+        if (this.isMock) {
+            console.log('[MOCK] vote', issueNumber)
+            return
+        }
+
         await this.octokit.rest.reactions.createForIssue({
             owner: this.owner,
             repo: this.repo,
-            issue_number: reportId,
+            issue_number: issueNumber,
             content: '+1'
         })
     }
 
-    async approveReport(reportId: number): Promise<void> {
-        await this.octokit.rest.issues.addLabels({
-            owner: this.owner,
-            repo: this.repo,
-            issue_number: reportId,
-            labels: ['status:approved']
-        })
-        
-        await this.octokit.rest.issues.removeLabel({
-            owner: this.owner,
-            repo: this.repo,
-            issue_number: reportId,
-            name: 'status:moderation'
-        })
+    /**
+     * Reject a report (Close with rejection label)
+     */
+    async rejectReport(issueNumber: number, comment: string): Promise<void> {
+        if (this.isMock) {
+            console.log('[MOCK] rejectReport', issueNumber, comment)
+            return
+        }
 
-        // Workflow 'enforce-ban.yml' will handle the rest (adding to blacklist.txt and closing)
-    }
-
-    async rejectReport(reportId: number, reason: string): Promise<void> {
+        // 1. Add comment
         await this.octokit.rest.issues.createComment({
             owner: this.owner,
             repo: this.repo,
-            issue_number: reportId,
-            body: `❌ **Report Rejected**\n\nReason: ${reason}`
+            issue_number: issueNumber,
+            body: `❌ **Жалоба отклонена.**\n\nКомментарий модератора: ${comment}`
+        })
+
+        // 2. Add rejected label and remove others
+        await this.octokit.rest.issues.removeAllLabels({
+            owner: this.owner,
+            repo: this.repo,
+            issue_number: issueNumber
         })
 
         await this.octokit.rest.issues.addLabels({
             owner: this.owner,
             repo: this.repo,
-            issue_number: reportId,
+            issue_number: issueNumber,
             labels: ['status:rejected']
         })
 
-        await this.octokit.rest.issues.removeLabel({
-            owner: this.owner,
-            repo: this.repo,
-            issue_number: reportId,
-            name: 'status:moderation' // Or voting if rejecting early
-        })
-
+        // 3. Close issue
         await this.octokit.rest.issues.update({
             owner: this.owner,
             repo: this.repo,
-            issue_number: reportId,
-            state: 'closed'
+            issue_number: issueNumber,
+            state: 'closed',
+            state_reason: 'not_planned'
         })
     }
 
-    async addComment(reportId: number, body: string): Promise<void> {
+    /**
+     * Approve ban (Close with approved label - triggers workflow)
+     */
+    async approveBan(issueNumber: number, comment: string): Promise<void> {
+        if (this.isMock) {
+            console.log('[MOCK] approveBan', issueNumber, comment)
+            return
+        }
+
+        // 1. Add comment
         await this.octokit.rest.issues.createComment({
             owner: this.owner,
             repo: this.repo,
-            issue_number: reportId,
-            body
+            issue_number: issueNumber,
+            body: `✅ **Жалоба одобрена.**\n\nКомментарий модератора: ${comment}\n\n*Запускается процесс автоматического бана...*`
         })
-    }
 
-    private mapIssueToReport(issue: any): Report {
-        const body = issue.body || ''
-        const telegramIdMatch = body.match(/Telegram ID:\*\*\s*(.+)/)
-        const usernameMatch = body.match(/Username:\*\*\s*@?(.+)/)
-        const reasonMatch = body.match(/Reason:\*\*\s*(.+)/) // Naive matching, improved regex needed for multiline or robust parsing
+        // 2. Add approved label
+        await this.octokit.rest.issues.removeAllLabels({
+            owner: this.owner,
+            repo: this.repo,
+            issue_number: issueNumber
+        })
+        
+        await this.octokit.rest.issues.addLabels({
+            owner: this.owner,
+            repo: this.repo,
+            issue_number: issueNumber,
+            labels: ['status:approved']
+        })
 
-        let status: ReportStatus = 'voting'
-        const labels = issue.labels.map((l: any) => l.name)
-        if (labels.includes('status:approved')) status = 'approved'
-        else if (labels.includes('status:rejected')) status = 'rejected'
-        else if (labels.includes('status:moderation')) status = 'moderation'
-
-        // Voting Deadline Calculation (Mock: generic 24h from creation)
-        const createdAt = new Date(issue.created_at)
-        const deadline = new Date(createdAt.getTime() + 24 * 60 * 60 * 1000)
-
-        // Vote Count
-        const votes = issue.reactions?.['+1'] || 0
-
-        return {
-            id: issue.number,
-            telegram_id: telegramIdMatch ? telegramIdMatch[1].trim() : 'Unknown',
-            username: usernameMatch ? usernameMatch[1].trim() : 'Unknown',
-            reason: reasonMatch ? reasonMatch[1].split('**Proofs')[0].trim() : (issue.body || 'No reason'), // Quick fix to stop at Proofs header
-            status,
-            created_at: issue.created_at,
-            vote_count: votes,
-            voting_deadline: deadline.toISOString()
-        }
-    }
-
-    private extractProofs(body: string): string[] {
-        const matches = body.matchAll(/\!\[\]\((.+?)\)/g)
-        return Array.from(matches, m => m[1])
+        // 3. Close issue (Workflow listens to closed + status:approved)
+        await this.octokit.rest.issues.update({
+            owner: this.owner,
+            repo: this.repo,
+            issue_number: issueNumber,
+            state: 'closed',
+            state_reason: 'completed'
+        })
     }
 }

@@ -1,15 +1,17 @@
-import React, { createContext, useContext, useState, useEffect } from 'react'
-import { Octokit } from '@octokit/rest'
+import { createContext, useContext, ReactNode, useMemo } from 'react'
+import { useGitHubAuth } from '../hooks/useGitHubAuth'
+import { useRoles } from '../hooks/useRoles'
+import type { UserRole } from '../types/roles'
 import { GitHubIssuesService } from '../services/GitHubIssuesService'
-import { DataManager } from '../services/DataManager'
+
+// Configuration
+const GITHUB_OWNER = import.meta.env.VITE_GITHUB_OWNER || 'DonMatteoVPN'
+const GITHUB_REPO = import.meta.env.VITE_GITHUB_REPO || 'Reshla-BLACKLIST'
 
 interface User {
-    login: string
-    avatar_url: string
-    html_url: string
-    name: string
     username: string
     avatar: string
+    name: string
 }
 
 interface AuthContextType {
@@ -18,91 +20,60 @@ interface AuthContextType {
     isAuthenticated: boolean
     login: (token: string) => Promise<void>
     logout: () => void
-    owner: string
-    repo: string
+
+    // Roles
+    userRole: UserRole | null
     isAdmin: boolean
     isModerator: boolean
+    isGuest: boolean
+
+    // State
+    isLoading: boolean
+    error: string | null
+
+    // Config
+    owner: string
+    repo: string
+
+    // Services
     issuesService: GitHubIssuesService | null
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
 
-const GITHUB_OWNER = import.meta.env.VITE_GITHUB_OWNER || 'DonMatteoVPN'
-const GITHUB_REPO = import.meta.env.VITE_GITHUB_REPO || 'Reshla-BLACKLIST'
+export const AuthProvider = ({ children }: { children: ReactNode }) => {
+    const { token, user, isLoading: authLoading, error, isAuthenticated, login, logout } = useGitHubAuth()
+    const { userRole, isAdmin, isModerator, isGuest, isLoading: rolesLoading } = useRoles(
+        token,
+        user?.username || null,
+        GITHUB_OWNER,
+        GITHUB_REPO
+    )
 
-export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
-    const [token, setToken] = useState<string | null>(localStorage.getItem('github_token'))
-    const [user, setUser] = useState<User | null>(null)
-    const [isAdmin, setIsAdmin] = useState(false)
-    const [isModerator, setIsModerator] = useState(false)
-    const [issuesService, setIssuesService] = useState<GitHubIssuesService | null>(null)
-
-    useEffect(() => {
-        if (token) {
-            checkAuth(token)
-        } else {
-            // Initialize public read-only service
-            setIssuesService(new GitHubIssuesService(null, GITHUB_OWNER, GITHUB_REPO))
-        }
+    // Initialize Service
+    const issuesService = useMemo(() => {
+        return token ? new GitHubIssuesService(token, GITHUB_OWNER, GITHUB_REPO) : null
     }, [token])
 
-    const checkAuth = async (accessToken: string) => {
-        try {
-            const octokit = new Octokit({ auth: accessToken })
-            const { data } = await octokit.rest.users.getAuthenticated()
-            
-            const userData = {
-                login: data.login,
-                avatar_url: data.avatar_url,
-                html_url: data.html_url,
-                name: data.name || data.login,
-                username: data.login,
-                avatar: data.avatar_url
-            }
-
-            setUser(userData)
-            setIssuesService(new GitHubIssuesService(accessToken, GITHUB_OWNER, GITHUB_REPO))
-
-            // Check Roles
-            const dataManager = new DataManager(accessToken, GITHUB_OWNER, GITHUB_REPO)
-            const roles = await dataManager.getRoles()
-            
-            setIsAdmin(roles.admins.includes(userData.login))
-            setIsModerator(roles.moderators.includes(userData.login) || roles.admins.includes(userData.login))
-
-        } catch (error) {
-            console.error('Auth verification failed:', error)
-            logout()
-        }
-    }
-
-    const login = async (accessToken: string) => {
-        localStorage.setItem('github_token', accessToken)
-        setToken(accessToken)
-    }
-
-    const logout = () => {
-        localStorage.removeItem('github_token')
-        setToken(null)
-        setUser(null)
-        setIsAdmin(false)
-        setIsModerator(false)
-        setIssuesService(new GitHubIssuesService(null, GITHUB_OWNER, GITHUB_REPO))
+    const value: AuthContextType = {
+        token,
+        user,
+        isAuthenticated,
+        login,
+        logout,
+        userRole,
+        isAdmin,
+        isModerator,
+        isGuest,
+        isLoading: authLoading || rolesLoading,
+        error,
+        owner: GITHUB_OWNER,
+        repo: GITHUB_REPO,
+        issuesService
     }
 
     return (
-        <AuthContext.Provider value={{
-            token,
-            user,
-            isAuthenticated: !!user,
-            login,
-            logout,
-            owner: GITHUB_OWNER,
-            repo: GITHUB_REPO,
-            isAdmin,
-            isModerator,
-            issuesService
-        }}>
+        <AuthContext.Provider value={value}>
             {children}
         </AuthContext.Provider>
     )

@@ -92,5 +92,19 @@
         "success": "Success",
         "confirm": "Confirm",
         "cancel": "Cancel"
+    },
+    "votingHub": {
+        "title": "Voting Hub",
+        "subtitle": "Community-driven justice. Your vote decides their fate.",
+        "activeVotes": "Active Votes",
+        "noActiveVotes": "No active votes",
+        "checkBackLater": "Check back later for new reports."
+    },
+    "moderationDashboard": {
+        "title": "Moderation Dashboard",
+        "subtitle": "Review and enforce bans.",
+        "queueSize": "Queue Size",
+        "queueEmpty": "Moderation queue is empty",
+        "goodJob": "Good job, officer."
     }
 }
