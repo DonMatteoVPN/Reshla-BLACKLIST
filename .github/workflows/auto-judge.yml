@@ -1,32 +1,30 @@
-name: Auto Judge Reports
+name: Auto Judge Voting
 
 on:
   schedule:
-    - cron: '*/10 * * * *'
+    - cron: '0 * * * *' # Run every hour
   workflow_dispatch:
 
 permissions:
   issues: write
-  contents: read
 
 jobs:
-  check-votes:
+  judge:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       
-      - name: Setup Node.js
+      - name: Setup Node
         uses: actions/setup-node@v4
         with:
           node-version: '20'
-          cache: 'npm'
-          
-      - name: Install dependencies
+
+      - name: Install Dependencies
         run: npm ci
-        
+
       - name: Check Votes
-        run: npm run check-votes
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           VITE_GITHUB_OWNER: ${{ github.repository_owner }}
           VITE_GITHUB_REPO: ${{ github.event.repository.name }}
+        run: npx ts-node scripts/check-votes.ts

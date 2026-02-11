@@ -2,67 +2,86 @@
 
 ![Reshla Banner](https://img.shields.io/badge/Reshla-Blacklist-critical?style=for-the-badge&logo=shield&logoColor=white) 
 ![React](https://img.shields.io/badge/React-20232A?style=for-the-badge&logo=react&logoColor=61DAFB)
-![TypeScript](https://img.shields.io/badge/TypeScript-007ACC?style=for-the-badge&logo=typescript&logoColor=white)
 ![GitHub Actions](https://img.shields.io/badge/GitHub_Actions-2088FF?style=for-the-badge&logo=github-actions&logoColor=white)
 
-**Reshla Blacklist** is a fully decentralized, community-driven blacklist management system. It leverages **GitHub Issues** as a database and **GitHub Actions** for automated governance, eliminating the need for a traditional backend.
+**Reshla Blacklist** — это децентрализованная система модерации сообщества, построенная на базе GitHub. 
+Нет бэкенда. Нет централизованной базы данных. Только **код**, **Issues** и **Actions**.
 
-## 📚 Documentation
-- **[Full Walkthrough & Architecture](./walkthrough.md)** - Detailed guide on how the system works.
-- **[Task List](./task.md)** - Development progress.
+---
 
-## 🌟 Key Features
-- **Voting Hub**: Community votes on reports using GitHub Reactions.
-- **Moderation Dashboard**: Moderators review reports that pass the voting threshold.
-- **Automated Justice**: 
-  - `auto-judge`: Promotes reports with >30 votes to moderation.
-  - `enforce-ban`: Automatically commits ban data to the repo upon approval.
-- **Transparency**: Every action is a commit, issue, or comment.
+## 🏛 Архитектура правосудия
 
-## 🚀 Quick Start
+Система работает как DAO (Decentralized Autonomous Organization) для банов.
 
-### 1. Setup
-```bash
-# Clone the repo
-git clone https://github.com/DonMatteoVPN/Reshla-BLACKLIST.git
-cd Reshla-BLACKLIST
+1.  **Voting Hub (Суд Присяжных)**: 
+    *   Любой пользователь может подать "Репорт" (создать Issue).
+    *   Репорт попадает в статус `Voting`.
+    *   Сообщество голосует реакциями (`+1`).
+    *   **30 голосов** за 24 часа -> Дело передается модераторам.
+    *   Меньше 30 голосов -> Дело закрывается (оправдан).
 
-# Install dependencies
-npm install
+2.  **Moderation Dashboard (Верховный Суд)**:
+    *   Модераторы рассматривают дела, прошедшие народное голосование.
+    *   **Approve** -> GitHub Action автоматически вносит ID в `reshala-blacklist.txt`.
+    *   **Reject** -> Issue закрывается с комментарием причины.
 
-# Configure Environment (.env)
-cp .env.example .env
-# Edit .env with your VITE_GITHUB_OWNER, VITE_GITHUB_REPO, and GITHUB_TOKEN
+3.  **Blacklist (Розыск)**:
+    *   `reshala-blacklist.txt` — единый источник правды.
+    *   Боты и админы чатов подтягивают этот файл для авто-бана.
+
+---
+
+## 🚀 Как запустить у себя?
+
+Этот проект полностью **Open Source** и **Serverless**. Вы можете развернуть свой "суд" за 5 минут.
+
+### 1. Форкните репозиторий
+Нажмите **Fork** в правом верхнем углу.
+
+### 2. Включите Actions
+Перейдите в `Settings -> Actions -> General` и убедитесь, что **Workflow permissions** установлены в `Read and write permissions`.
+
+### 3. Включите GitHub Pages
+Перейдите в `Settings -> Pages`.
+*   Source: `Deploy from a branch`
+*   Branch: `gh-pages` (появится после первого пуша или запуска экшена)
+
+### 4. Настройте роли пользователей
+Отредактируйте файл `data/roles.json` в репозитории:
+```json
+{
+  "admins": ["ваш_никнейм"],
+  "moderators": ["ник_друга"]
+}
 ```
 
-### 2. Run Locally
-```bash
-npm run dev
+---
+
+## 🛠 Технический стек
+
+*   **Frontend**: React + Vite + TailwindCSS
+*   **Database**: GitHub Issues API
+*   **Auth**: GitHub Personal Access Tokens (хранятся локально у клиента)
+*   **CI/CD**: GitHub Actions (авто-деплой, авто-модерация)
+*   **Storage**: GitHub Repository (JSON/TXT files)
+
+---
+
+## 🤖 API для ботов
+
+Хотите подключить своего бота к базе банов? Просто скачивайте RAW файл:
+
 ```
-Visit `http://localhost:5173`.
-
-### 3. Automation Scripts (Dry Run)
-```bash
-# Check for reports that passed voting
-npm run check-votes
-
-# Generate blacklist entry (requires ISSUE_NUMBER env var)
-ISSUE_NUMBER=123 npm run generate-entry
+https://raw.githubusercontent.com/[ВАШ_НИК]/Reshla-BLACKLIST/main/reshala-blacklist.txt
 ```
 
-## 🛠 Deployment
-The project takes advantage of **GitHub Pages** for hosting.
-1. Push to `main`.
-2. The `.github/workflows/deploy.yml` workflow will automatically build and deploy to the `gh-pages` branch.
-3. Enable GitHub Pages in repo settings: **Source** -> **Deploy from a branch** -> **gh-pages**.
+Формат:
+```text
+TELEGRAM_ID # Причина бана (Ссылка на дело)
+```
 
-## 🏗 Architecture
-See [walkthrough.md](./walkthrough.md) for the full architectural diagram.
+---
 
-## 🤝 Contributing
-1. Fork the repo.
-2. Create a feature branch.
-3. Submit a Pull Request.
+## ⚖️ License
 
-## 📄 License
-MIT
+MIT License. Судите справедливо.
