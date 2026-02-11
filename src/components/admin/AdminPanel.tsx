@@ -69,7 +69,6 @@ const AdminPanel = () => {
 
     const handleSave = async () => {
         if (!token) return
-
         setIsSaving(true)
         try {
             const dataManager = new DataManager(token, owner, repo)

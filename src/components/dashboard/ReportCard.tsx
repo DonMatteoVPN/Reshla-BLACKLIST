@@ -1,7 +1,6 @@
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useAuth } from '../../context/AuthContext'
-import { SupabaseService } from '../../services/SupabaseService'
 import type { Report } from '../../types/report'
 import ReportDetailsModal from '../modals/ReportDetailsModal'
 
@@ -12,21 +11,21 @@ interface ReportCardProps {
 
 const ReportCard = ({ report, onVoteSuccess }: ReportCardProps) => {
     const { t } = useTranslation()
-    const { user } = useAuth()
+    const { user, issuesService } = useAuth()
     const [showDetails, setShowDetails] = useState(false)
     const [isVoting, setIsVoting] = useState(false)
     const [hasVoted, setHasVoted] = useState(false)
 
     const statusColor = {
         voting: 'bg-warning',
-        pending_review: 'bg-primary',
+        moderation: 'bg-primary',
         approved: 'bg-success',
         rejected: 'bg-danger'
     }[report.status]
 
     const statusText = {
         voting: t('reportCard.statusVoting'),
-        pending_review: t('reportCard.statusPendingReview'),
+        moderation: t('reportCard.statusModeration'),
         approved: t('reportCard.statusApproved'),
         rejected: t('reportCard.statusRejected')
     }[report.status]
@@ -34,19 +33,13 @@ const ReportCard = ({ report, onVoteSuccess }: ReportCardProps) => {
     const handleVote = async (e: React.MouseEvent) => {
         e.stopPropagation()
 
-        if (!user || isVoting || hasVoted) return
+        if (!user || isVoting || hasVoted || !issuesService) return
 
         setIsVoting(true)
         try {
-            const supabase = new SupabaseService()
-            const success = await supabase.voteForReport(report.id, user.username)
-
-            if (success) {
-                setHasVoted(true)
-                if (onVoteSuccess) onVoteSuccess()
-            } else {
-                alert(t('reportCard.voteError'))
-            }
+            await issuesService.vote(report.id)
+            setHasVoted(true)
+            if (onVoteSuccess) onVoteSuccess()
         } catch (error) {
             console.error('Error voting:', error)
             alert(t('reportCard.voteError'))
@@ -111,11 +104,10 @@ const ReportCard = ({ report, onVoteSuccess }: ReportCardProps) => {
                             <button
                                 onClick={handleVote}
                                 disabled={isVoting || hasVoted}
-                                className={`px-4 py-2 rounded transition-colors ${
-                                    hasVoted
-                                        ? 'bg-dark-surface text-dark-muted cursor-not-allowed'
-                                        : 'bg-warning hover:bg-warning-dark'
-                                }`}
+                                className={`px-4 py-2 rounded transition-colors ${hasVoted
+                                    ? 'bg-dark-surface text-dark-muted cursor-not-allowed'
+                                    : 'bg-warning hover:bg-warning-dark'
+                                    }`}
                             >
                                 {hasVoted ? t('reportCard.voted') : t('reportCard.vote')}
                             </button>

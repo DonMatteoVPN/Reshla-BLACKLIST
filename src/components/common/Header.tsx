@@ -6,7 +6,7 @@ import LoginForm from '../auth/LoginForm'
 
 const Header = () => {
     const { t, i18n } = useTranslation()
-    const { user, isAuthenticated, logout, isAdmin } = useAuth()
+    const { user, isAuthenticated, logout, isAdmin, isModerator } = useAuth()
     const [showLoginForm, setShowLoginForm] = useState(false)
 
     const toggleLanguage = () => {
@@ -24,6 +24,18 @@ const Header = () => {
                             {t('app.title')}
                         </h1>
                     </Link>
+
+                    {/* Navigation Links */}
+                    <div className="hidden md:flex items-center space-x-6 ml-8 mr-auto">
+                        <Link to="/voting" className="text-dark-muted hover:text-accent transition-colors">
+                            {t('votingHub.title')}
+                        </Link>
+                        {isModerator && (
+                            <Link to="/moderation" className="text-dark-muted hover:text-primary transition-colors">
+                                {t('moderationDashboard.title')}
+                            </Link>
+                        )}
+                    </div>
 
                     {/* Навигация и действия */}
                     <div className="flex items-center space-x-4">

@@ -1,14 +1,13 @@
 import { useState, useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useAuth } from '../../context/AuthContext'
-import { SupabaseService } from '../../services/SupabaseService'
 import ReportCard from './ReportCard'
 import ReportUserModal from '../modals/ReportUserModal'
-import type { Report } from '../../types/report'
+import type { Report, ReportStatus } from '../../types/report'
 
 const Dashboard = () => {
     const { t } = useTranslation()
-    const { isAuthenticated } = useAuth()
+    const { isAuthenticated, issuesService } = useAuth()
     const [reports, setReports] = useState<Report[]>([])
     const [isLoading, setIsLoading] = useState(true)
     const [filter, setFilter] = useState<'all' | 'voting' | 'pending_review' | 'approved' | 'rejected'>('all')
@@ -17,12 +16,21 @@ const Dashboard = () => {
 
     useEffect(() => {
         loadReports()
-    }, [])
+    }, [issuesService])
 
     const loadReports = async () => {
+        if (!issuesService) return
+
+        setIsLoading(true)
         try {
-            const supabase = new SupabaseService()
-            const data = await supabase.getReports()
+            // Map UI filter to Service status
+            let status: ReportStatus | 'all' = 'all'
+            if (filter === 'approved') status = 'approved'
+            if (filter === 'rejected') status = 'rejected'
+            if (filter === 'voting') status = 'voting'
+            if (filter === 'pending_review') status = 'moderation'
+
+            const data = await issuesService.getReports(status)
             setReports(data)
         } catch (error) {
             console.error('Error loading reports:', error)
