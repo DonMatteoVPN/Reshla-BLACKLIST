@@ -1,29 +1,39 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useAuth } from '../../context/AuthContext'
-import { useBlacklist } from '../../hooks/useBlacklist'
-import UserCard from './UserCard'
-import FilterBar from './FilterBar'
+import { SupabaseService } from '../../services/SupabaseService'
+import ReportCard from './ReportCard'
 import ReportUserModal from '../modals/ReportUserModal'
+import type { Report } from '../../types/report'
 
 const Dashboard = () => {
     const { t } = useTranslation()
-    const { token, owner, repo } = useAuth()
-    const { profiles, isLoading, error } = useBlacklist(token, owner, repo)
-
-    const [filter, setFilter] = useState<'all' | 'active' | 'pending'>('all')
+    const { isAuthenticated } = useAuth()
+    const [reports, setReports] = useState<Report[]>([])
+    const [isLoading, setIsLoading] = useState(true)
+    const [filter, setFilter] = useState<'all' | 'voting' | 'pending_review' | 'approved' | 'rejected'>('all')
     const [searchQuery, setSearchQuery] = useState('')
     const [showReportModal, setShowReportModal] = useState(false)
 
-    // Фильтрация профилей
-    const filteredProfiles = profiles.filter((profile) => {
-        // Фильтр по статусу
-        if (filter === 'active' && profile.status !== 'active') return false
-        if (filter === 'pending' && profile.status !== 'pending') return false
+    useEffect(() => {
+        loadReports()
+    }, [])
 
-        // Поиск по Telegram ID
-        if (searchQuery && !profile.telegram_id.includes(searchQuery)) return false
+    const loadReports = async () => {
+        try {
+            const supabase = new SupabaseService()
+            const data = await supabase.getReports()
+            setReports(data)
+        } catch (error) {
+            console.error('Error loading reports:', error)
+        } finally {
+            setIsLoading(false)
+        }
+    }
 
+    const filteredReports = reports.filter((report) => {
+        if (filter !== 'all' && report.status !== filter) return false
+        if (searchQuery && !report.telegram_id.includes(searchQuery)) return false
         return true
     })
 
@@ -35,51 +45,99 @@ const Dashboard = () => {
         )
     }
 
-    if (error) {
-        return (
-            <div className="flex items-center justify-center min-h-[400px]">
-                <p className="text-danger">{error}</p>
-            </div>
-        )
-    }
-
     return (
         <div className="space-y-6">
-            {/* Заголовок и кнопка репорта */}
             <div className="flex items-center justify-between">
                 <h1 className="text-3xl font-bold">{t('dashboard.title')}</h1>
-                <button
-                    onClick={() => setShowReportModal(true)}
-                    className="px-4 py-2 rounded bg-warning hover:bg-warning-dark transition-colors"
-                >
-                    {t('dashboard.reportUser')}
-                </button>
+                {isAuthenticated && (
+                    <button
+                        onClick={() => setShowReportModal(true)}
+                        className="px-4 py-2 rounded bg-warning hover:bg-warning-dark transition-colors"
+                    >
+                        {t('dashboard.reportUser')}
+                    </button>
+                )}
             </div>
 
-            {/* Фильтры и поиск */}
-            <FilterBar
-                filter={filter}
-                setFilter={setFilter}
-                searchQuery={searchQuery}
-                setSearchQuery={setSearchQuery}
-            />
+            <div className="flex flex-col sm:flex-row gap-4">
+                <div className="flex flex-wrap gap-2">
+                    <button
+                        onClick={() => setFilter('all')}
+                        className={`px-4 py-2 rounded transition-colors ${filter === 'all'
+                            ? 'bg-primary text-white'
+                            : 'bg-dark-surface hover:bg-dark-border'
+                            }`}
+                    >
+                        {t('dashboard.filterAll')}
+                    </button>
+                    <button
+                        onClick={() => setFilter('voting')}
+                        className={`px-4 py-2 rounded transition-colors ${filter === 'voting'
+                            ? 'bg-primary text-white'
+                            : 'bg-dark-surface hover:bg-dark-border'
+                            }`}
+                    >
+                        {t('dashboard.filterVoting')}
+                    </button>
+                    <button
+                        onClick={() => setFilter('pending_review')}
+                        className={`px-4 py-2 rounded transition-colors ${filter === 'pending_review'
+                            ? 'bg-primary text-white'
+                            : 'bg-dark-surface hover:bg-dark-border'
+                            }`}
+                    >
+                        {t('dashboard.filterPendingReview')}
+                    </button>
+                    <button
+                        onClick={() => setFilter('approved')}
+                        className={`px-4 py-2 rounded transition-colors ${filter === 'approved'
+                            ? 'bg-primary text-white'
+                            : 'bg-dark-surface hover:bg-dark-border'
+                            }`}
+                    >
+                        {t('dashboard.filterApproved')}
+                    </button>
+                    <button
+                        onClick={() => setFilter('rejected')}
+                        className={`px-4 py-2 rounded transition-colors ${filter === 'rejected'
+                            ? 'bg-primary text-white'
+                            : 'bg-dark-surface hover:bg-dark-border'
+                            }`}
+                    >
+                        {t('dashboard.filterRejected')}
+                    </button>
+                </div>
 
-            {/* Сетка карточек */}
-            {filteredProfiles.length === 0 ? (
+                <input
+                    type="text"
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    placeholder={t('dashboard.searchPlaceholder')}
+                    className="flex-1 px-4 py-2 rounded bg-dark-surface border border-dark-border focus:border-primary outline-none transition-colors"
+                />
+            </div>
+
+            {filteredReports.length === 0 ? (
                 <div className="text-center py-12 text-dark-muted">
                     {t('dashboard.noResults')}
                 </div>
             ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                    {filteredProfiles.map((profile) => (
-                        <UserCard key={profile.telegram_id} profile={profile} />
+                    {filteredReports.map((report) => (
+                        <ReportCard
+                            key={report.id}
+                            report={report}
+                            onVoteSuccess={loadReports}
+                        />
                     ))}
                 </div>
             )}
 
-            {/* Модалка репорта */}
             {showReportModal && (
-                <ReportUserModal onClose={() => setShowReportModal(false)} />
+                <ReportUserModal onClose={() => {
+                    setShowReportModal(false)
+                    loadReports()
+                }} />
             )}
         </div>
     )

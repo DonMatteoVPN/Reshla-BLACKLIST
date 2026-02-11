@@ -1,8 +1,8 @@
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useAuth } from '../../context/AuthContext'
-import { DataManager } from '../../services/DataManager'
-import type { Profile } from '../../types/profile'
+import { SupabaseService } from '../../services/SupabaseService'
+import { Octokit } from '@octokit/rest'
 
 interface ReportUserModalProps {
     onClose: () => void
@@ -23,9 +23,22 @@ const ReportUserModal = ({ onClose }: ReportUserModalProps) => {
         }
     }
 
+    const fileToBase64 = (file: File): Promise<string> => {
+        return new Promise((resolve, reject) => {
+            const reader = new FileReader()
+            reader.readAsDataURL(file)
+            reader.onload = () => {
+                const base64String = reader.result?.toString().split(',')[1]
+                if (base64String) resolve(base64String)
+                else reject(new Error('Failed to convert file to base64'))
+            }
+            reader.onerror = (error) => reject(error)
+        })
+    }
+
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault()
-        if (!token) {
+        if (!token || !user) {
             alert(t('auth.loginRequired'))
             return
         }
@@ -33,19 +46,37 @@ const ReportUserModal = ({ onClose }: ReportUserModalProps) => {
         setIsLoading(true)
 
         try {
-            const dataManager = new DataManager(token, owner, repo)
+            const supabase = new SupabaseService()
+            const octokit = new Octokit({ auth: token })
 
-            const profile: Profile = {
-                telegram_id: telegramId,
-                username: username.replace('@', ''), // Убираем @ если пользователь ввел
-                reason: reason,
-                date: new Date().toISOString(),
-                voting_count: 0,
-                status: 'pending',
-                added_by: user?.username || 'anonymous'
+            const report = await supabase.createReport(
+                telegramId,
+                username.replace('@', ''),
+                reason,
+                user.username
+            )
+
+            if (!report) {
+                throw new Error('Failed to create report')
             }
 
-            await dataManager.createProfile(profile, files)
+            for (const file of files) {
+                const content = await fileToBase64(file)
+                const timestamp = Date.now()
+                const safeName = file.name.replace(/[^a-zA-Z0-9.-]/g, '_')
+                const path = `data/temp_proofs/${report.id}/${timestamp}_${safeName}`
+
+                await octokit.rest.repos.createOrUpdateFileContents({
+                    owner,
+                    repo,
+                    path,
+                    message: `Upload proof for report ${report.id}`,
+                    content
+                })
+
+                const fileUrl = `https://raw.githubusercontent.com/${owner}/${repo}/main/${path}`
+                await supabase.uploadProof(report.id, file.name, fileUrl)
+            }
 
             alert(t('reportForm.success'))
             onClose()

@@ -1,6 +1,7 @@
 import { Octokit } from '@octokit/rest'
 import type { Roles } from '../types/roles'
 import type { Profile } from '../types/profile'
+import type { Report, ReportProof } from '../types/report'
 
 /**
  * Класс для работы с GitHub API через Octokit
@@ -304,6 +305,110 @@ export class DataManager {
             }
         } catch (error) {
             console.error('Error rejecting profile:', error)
+            throw error
+        }
+    }
+
+    /**
+     * Создать профиль из одобренного репорта и загрузить доказательства
+     */
+    async createProfileFromReport(
+        report: Report,
+        proofs: ReportProof[]
+    ): Promise<string> {
+        try {
+            const telegramId = report.telegram_id
+
+            // 1. Загружаем доказательства
+            for (const proof of proofs) {
+                const response = await fetch(proof.file_url)
+                const blob = await response.blob()
+                const file = new File([blob], proof.file_name)
+                const content = await this.fileToBase64(file)
+
+                await this.octokit.rest.repos.createOrUpdateFileContents({
+                    owner: this.owner,
+                    repo: this.repo,
+                    path: `data/blacklist/${telegramId}/proofs/${proof.file_name}`,
+                    message: `Add proof: ${proof.file_name}`,
+                    content
+                })
+            }
+
+            // 2. Создаем profile.json
+            const profile: Profile = {
+                telegram_id: report.telegram_id,
+                username: report.username,
+                reason: report.reason,
+                date: report.created_at,
+                voting_count: report.vote_count,
+                status: 'active',
+                added_by: report.submitted_by,
+                proof_files: proofs.map(p => p.file_name)
+            }
+
+            const jsonContent = JSON.stringify(profile, null, 2)
+            const profileContent = btoa(unescape(encodeURIComponent(jsonContent)))
+
+            await this.octokit.rest.repos.createOrUpdateFileContents({
+                owner: this.owner,
+                repo: this.repo,
+                path: `data/blacklist/${telegramId}/profile.json`,
+                message: `Add to blacklist: ${telegramId}`,
+                content: profileContent
+            })
+
+            // 3. Обновляем reshala-blacklist.txt
+            await this.updateBlacklistFile(report)
+
+            return `data/blacklist/${telegramId}`
+        } catch (error) {
+            console.error('Error creating profile from report:', error)
+            throw error
+        }
+    }
+
+    /**
+     * Обновить файл reshala-blacklist.txt
+     */
+    async updateBlacklistFile(report: Report): Promise<void> {
+        try {
+            const path = 'reshala-blacklist.txt'
+            let existingContent = ''
+            let sha: string | undefined
+
+            try {
+                existingContent = await this.getFileContent(path)
+                sha = await this.getFileSha(path)
+            } catch {
+                // Файл не существует, создадим новый
+            }
+
+            const githubUrl = `https://github.com/${this.owner}/${this.repo}/tree/main/data/blacklist/${report.telegram_id}`
+            const newEntry = `${report.telegram_id} #${report.reason} ${githubUrl}\n`
+
+            const lines = existingContent ? existingContent.split('\n') : []
+            const existingIndex = lines.findIndex(line => line.startsWith(report.telegram_id))
+
+            if (existingIndex >= 0) {
+                lines[existingIndex] = newEntry.trim()
+            } else {
+                lines.push(newEntry.trim())
+            }
+
+            const updatedContent = lines.filter(line => line.trim()).join('\n') + '\n'
+            const content = btoa(unescape(encodeURIComponent(updatedContent)))
+
+            await this.octokit.rest.repos.createOrUpdateFileContents({
+                owner: this.owner,
+                repo: this.repo,
+                path,
+                message: `Update blacklist: ${report.telegram_id}`,
+                content,
+                sha
+            })
+        } catch (error) {
+            console.error('Error updating blacklist file:', error)
             throw error
         }
     }
