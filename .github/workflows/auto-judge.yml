@@ -7,6 +7,7 @@ on:
 
 permissions:
   issues: write
+  contents: read
 
 jobs:
   judge:
@@ -18,13 +19,14 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '20'
+          cache: 'npm'
 
       - name: Install Dependencies
-        run: npm ci
+        run: npm install
 
       - name: Check Votes
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           VITE_GITHUB_OWNER: ${{ github.repository_owner }}
           VITE_GITHUB_REPO: ${{ github.event.repository.name }}
-        run: npx ts-node scripts/check-votes.ts
+        run: npm run check-votes
